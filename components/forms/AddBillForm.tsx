@@ -20,6 +20,41 @@ type AddBillFormProps = {
   onSuccess: () => void;
 };
 
+function toJpgFilename(name: string) {
+  return name.replace(/\.[^.]+$/, "") + ".jpg";
+}
+
+async function normalizeSelectedImage(file: File): Promise<File> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/images/normalize", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = "Failed to process selected image.";
+
+    try {
+      const data = (await response.json()) as { error?: string };
+      if (data.error) {
+        message = data.error;
+      }
+    } catch {
+      // Keep the default fallback message.
+    }
+
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  return new File([blob], toJpgFilename(file.name), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps) {
   const dispatch = useAppDispatch();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -34,6 +69,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
+  const [preparingImage, setPreparingImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -87,6 +123,29 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
     awaitRefetchQueries: true,
   });
 
+  async function handleImageSelection(file: File | null) {
+    setFormError(null);
+
+    if (!file) {
+      setImage(null);
+      return;
+    }
+
+    setPreparingImage(true);
+
+    try {
+      const normalizedFile = await normalizeSelectedImage(file);
+      setImage(normalizedFile);
+    } catch (selectionError) {
+      setImage(null);
+      setFormError(
+        selectionError instanceof Error ? selectionError.message : "Failed to process selected image."
+      );
+    } finally {
+      setPreparingImage(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
@@ -102,13 +161,13 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
       return;
     }
 
-    if (image && image.size > 2 * 1024 * 1024) {
-      setFormError("Image must be 2MB or smaller.");
+    if (preparingImage) {
+      setFormError("Please wait for the image to finish processing.");
       return;
     }
 
-    if (image && !image.type.startsWith("image/")) {
-      setFormError("Only image files are allowed.");
+    if (image && image.size > 2 * 1024 * 1024) {
+      setFormError("Image must be 2MB or smaller after conversion.");
       return;
     }
 
@@ -308,8 +367,11 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         <input
           id={fileInputId}
           type="file"
-          accept="image/*"
-          onChange={(event) => setImage(event.target.files?.[0] ?? null)}
+          accept="image/*,.heic,.heif,.avif"
+          onChange={(event) => {
+            void handleImageSelection(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
           className="hidden"
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -318,12 +380,13 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#e8d8c0] bg-[#fef9f2] px-3 py-2 text-sm font-semibold text-[#44382a] transition hover:border-amber-200 hover:bg-amber-50"
           >
             <FiUploadCloud className="h-4 w-4 text-amber-600" />
-            Choose File
+            {preparingImage ? "Processing..." : "Choose File"}
           </label>
           <button
             type="button"
             onClick={() => void openCamera()}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+            disabled={preparingImage}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
           >
             <FiCamera className="h-4 w-4" />
             Camera
@@ -342,7 +405,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         {image ? (
           <p className="truncate text-xs font-medium text-[#78604a]">{image.name}</p>
         ) : (
-          <p className="text-xs text-[#b8926a]">Any image type, max 2MB.</p>
+          <p className="text-xs text-[#b8926a]">Modern phone images are converted to JPG automatically, max 2MB after conversion.</p>
         )}
         {imagePreviewUrl ? (
           <div className="overflow-hidden rounded-xl border border-[#e8d8c0] bg-[#fef9f2] p-2">
@@ -443,10 +506,10 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
 
       <button
         type="submit"
-        disabled={loading || categories.length === 0}
+        disabled={loading || preparingImage || categories.length === 0}
         className="w-full rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition hover:bg-amber-500 active:scale-[0.98] disabled:opacity-60"
       >
-        {loading ? "Saving..." : "Save Bill"}
+        {preparingImage ? "Processing image..." : loading ? "Saving..." : "Save Bill"}
       </button>
       {categories.length === 0 ? (
         <p className="text-xs font-medium text-amber-700">Add a category before creating a bill.</p>

@@ -144,7 +144,7 @@ export default function HomeDetailsPage() {
                 </p>
               </div>
             ) : (
-              loading && <LoadingSpinner className="h-4 w-4 text-amber-500" />
+              loading && <LoadingSpinner className="h-5 w-5 text-amber-500" />
             )}
           </div>
 

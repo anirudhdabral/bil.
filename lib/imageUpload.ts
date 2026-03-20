@@ -17,30 +17,26 @@ function uniqueFilename(): string {
   return `${ts}-${rand}.jpg`;
 }
 
-export async function processAndSaveBillImage(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) {
-    throw new GraphQLError("Only image files are allowed", {
-      extensions: { code: "BAD_USER_INPUT" },
-    });
-  }
-
-  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-    throw new GraphQLError("Image must be 2MB or smaller", {
-      extensions: { code: "BAD_USER_INPUT" },
-    });
-  }
-
-  const inputBuffer = Buffer.from(await file.arrayBuffer());
-
-  let outputBuffer: Buffer;
+export async function normalizeBillImageBuffer(inputBuffer: Buffer): Promise<Buffer> {
   try {
-    outputBuffer = await sharp(inputBuffer)
+    return await sharp(inputBuffer)
       .rotate()
       .resize({ width: 800, withoutEnlargement: true })
       .jpeg({ quality: 70, mozjpeg: true })
       .toBuffer();
   } catch {
     throw new GraphQLError("Failed to process uploaded image", {
+      extensions: { code: "BAD_USER_INPUT" },
+    });
+  }
+}
+
+export async function processAndSaveBillImage(file: File): Promise<string> {
+  const inputBuffer = Buffer.from(await file.arrayBuffer());
+  const outputBuffer = await normalizeBillImageBuffer(inputBuffer);
+
+  if (outputBuffer.length > MAX_UPLOAD_SIZE_BYTES) {
+    throw new GraphQLError("Image must be 2MB or smaller after conversion", {
       extensions: { code: "BAD_USER_INPUT" },
     });
   }
