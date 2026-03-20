@@ -3,14 +3,21 @@
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FiClock, FiLogOut } from "react-icons/fi";
 
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 
+type SignInStatus = {
+  paused: boolean;
+  pendingUsers: number;
+  maxPendingUsers: number;
+};
+
 export default function PendingPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [signInStatus, setSignInStatus] = useState<SignInStatus | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -21,6 +28,36 @@ export default function PendingPage() {
       router.replace("/");
     }
   }, [router, session?.user?.approved, session?.user?.role, status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSignInStatus() {
+      try {
+        const response = await fetch("/api/auth/signin-status", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as SignInStatus;
+        if (!cancelled) {
+          setSignInStatus(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSignInStatus(null);
+        }
+      }
+    }
+
+    void loadSignInStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
 
   if (status === "loading") {
     return (
@@ -34,6 +71,15 @@ export default function PendingPage() {
       </div>
     );
   }
+
+  const pendingCount = signInStatus?.pendingUsers ?? 0;
+  const maxPendingUsers = signInStatus?.maxPendingUsers ?? 3;
+  const showCapacityMessage =
+    status === "authenticated" &&
+    !session?.user?.approved &&
+    session?.user?.role !== "SUPER_ADMIN" &&
+    !session?.user?.existedBeforeSignIn &&
+    pendingCount >= maxPendingUsers;
 
   return (
     <main
@@ -56,7 +102,9 @@ export default function PendingPage() {
 
         <div className="space-y-4 px-6 py-6 text-center">
           <p className="text-sm text-[#78604a]">
-            Once approved, your access will activate automatically the next time your session refreshes.
+            {showCapacityMessage
+              ? `There are already ${pendingCount} users waiting for approval. If you have another approved account, sign out and continue with that one instead.`
+              : "Once approved, your access will activate automatically the next time your session refreshes."}
           </p>
 
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">

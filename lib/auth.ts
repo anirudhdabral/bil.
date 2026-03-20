@@ -7,7 +7,6 @@ import { connectToDatabase } from "./mongodb";
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const superAdminEmail = process.env.SUPER_ADMIN?.trim().toLowerCase() ?? "";
-const maxPendingUsers = 3;
 
 if (!googleClientId || !googleClientSecret) {
   throw new Error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET environment variables.");
@@ -30,17 +29,6 @@ async function syncUserAccess({ email, name, image }: SyncUserInput) {
   const isSuperAdmin = !!superAdminEmail && normalizedEmail === superAdminEmail;
   const existingUser = await User.findOne({ email: normalizedEmail });
 
-  if (!isSuperAdmin && !existingUser) {
-    const pendingUsers = await User.countDocuments({
-      approved: false,
-      role: USER_ROLES.USER,
-    });
-
-    if (pendingUsers >= maxPendingUsers) {
-      return { allowed: false as const };
-    }
-  }
-
   const nextRole: UserRole = isSuperAdmin ? USER_ROLES.SUPER_ADMIN : (existingUser?.role ?? USER_ROLES.USER);
   const nextApproved = isSuperAdmin ? true : (existingUser?.approved ?? false);
 
@@ -56,7 +44,11 @@ async function syncUserAccess({ email, name, image }: SyncUserInput) {
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
-  return { allowed: true as const, dbUser };
+  return {
+    allowed: true as const,
+    dbUser,
+    existedBeforeSignIn: Boolean(existingUser),
+  };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -84,15 +76,11 @@ export const authOptions: NextAuthOptions = {
         return false;
       }
 
-      const result = await syncUserAccess({
+      await syncUserAccess({
         email: normalizedEmail,
         name: user.name,
         image: user.image,
       });
-
-      if (!result.allowed) {
-        return "/login?error=PendingLimitReached";
-      }
 
       return true;
     },
@@ -116,6 +104,7 @@ export const authOptions: NextAuthOptions = {
       token.email = normalizedEmail;
       token.role = result.dbUser.role;
       token.approved = result.dbUser.approved;
+      token.existedBeforeSignIn = result.existedBeforeSignIn;
       token.picture = result.dbUser.image ?? token.picture;
 
       return token;
@@ -128,6 +117,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id ?? "";
       session.user.role = token.role ?? USER_ROLES.USER;
       session.user.approved = Boolean(token.approved);
+      session.user.existedBeforeSignIn = Boolean(token.existedBeforeSignIn);
 
       return session;
     },

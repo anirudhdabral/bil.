@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@apollo/client/react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown, FiLogOut, FiShield, FiUserPlus, FiUsers } from "react-icons/fi";
 
 import {
@@ -37,6 +37,7 @@ export function AppNavbar() {
   const dispatch = useAppDispatch();
   const { data: session } = useSession();
   const selectedHomeId = useAppSelector((state) => state.selectedHome.selectedHomeId);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -83,6 +84,23 @@ export function AppNavbar() {
       isAdmin: home.owners.map((owner) => owner.toLowerCase()).includes(email.toLowerCase()),
     }));
   }, [home]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [menuOpen]);
 
   if (pathname === "/login" || pathname === "/pending") {
     return null;
@@ -142,7 +160,7 @@ export function AppNavbar() {
             </span>
           </Link>
 
-          <div className="relative">
+          <div ref={menuRef} className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
@@ -165,56 +183,48 @@ export function AppNavbar() {
             </button>
 
             {menuOpen ? (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-10 cursor-default"
-                  onClick={() => setMenuOpen(false)}
-                  aria-label="Close menu"
-                />
-                <div className="absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-2xl border border-[#e8d8c0] bg-[#fdf8f0] shadow-xl shadow-amber-900/10">
-                  <div className="border-b border-[#e8d8c0] bg-[#fef9f2] px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#78604a]">Signed in as</p>
-                    <p className="mt-0.5 truncate text-sm font-medium text-[#1a1208]">{session?.user?.email}</p>
-                    {isSuperAdmin ? (
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Admin</p>
-                    ) : null}
-                  </div>
-                  <div className="p-1.5">
-                    {isSuperAdmin ? (
-                      <Link
-                        href="/admin"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
-                      >
-                        <FiShield className="h-4 w-4 text-amber-600" />
-                        Approve Users
-                      </Link>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setManageOpen(true);
-                      }}
-                      disabled={!selectedHomeId}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <FiUsers className="h-4 w-4 text-amber-600" />
-                      Manage Home Users
-                    </button>
-                    <div className="my-1 h-px bg-[#e8d8c0]" />
-                    <button
-                      type="button"
-                      onClick={() => signOut({ callbackUrl: "/login" })}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-700 transition hover:bg-red-50"
-                    >
-                      <FiLogOut className="h-4 w-4" />
-                      Logout
-                    </button>
-                  </div>
+              <div className="absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-2xl border border-[#e8d8c0] bg-[#fdf8f0] shadow-xl shadow-amber-900/10">
+                <div className="border-b border-[#e8d8c0] bg-[#fef9f2] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#78604a]">Signed in as</p>
+                  <p className="mt-0.5 truncate text-sm font-medium text-[#1a1208]">{session?.user?.email}</p>
+                  {isSuperAdmin ? (
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Admin</p>
+                  ) : null}
                 </div>
-              </>
+                <div className="p-1.5">
+                  {isSuperAdmin ? (
+                    <Link
+                      href="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
+                    >
+                      <FiShield className="h-4 w-4 text-amber-600" />
+                      Approve Users
+                    </Link>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setManageOpen(true);
+                    }}
+                    disabled={!selectedHomeId}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FiUsers className="h-4 w-4 text-amber-600" />
+                    Manage Home Users
+                  </button>
+                  <div className="my-1 h-px bg-[#e8d8c0]" />
+                  <button
+                    type="button"
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-700 transition hover:bg-red-50"
+                  >
+                    <FiLogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                </div>
+              </div>
             ) : null}
           </div>
         </div>
