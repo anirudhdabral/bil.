@@ -9,6 +9,7 @@ import { createApolloClient } from "../lib/apollo/client";
 import { store } from "../lib/redux/store";
 import { AppAuthGate } from "./ui/AppAuthGate";
 import { GlobalUiFeedback } from "./ui/GlobalUiFeedback";
+import { InstallPwaPrompt } from "./ui/InstallPwaPrompt";
 import { ServiceWorkerRegistration } from "./ui/ServiceWorkerRegistration";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <Provider store={store}>
         <ApolloProvider client={apolloClient}>
           <ServiceWorkerRegistration />
+          <InstallPwaPrompt />
           <GlobalUiFeedback />
           <AppAuthGate>{children}</AppAuthGate>
         </ApolloProvider>
