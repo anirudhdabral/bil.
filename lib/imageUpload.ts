@@ -1,22 +1,8 @@
-import { randomBytes } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-
 import { GraphQLError } from "graphql";
 import heicConvert from "heic-convert";
 import sharp from "sharp";
 
 const MAX_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
-
-function uploadsDir(): string {
-  return path.join(process.cwd(), "public", "uploads");
-}
-
-function uniqueFilename(): string {
-  const ts = Date.now();
-  const rand = randomBytes(8).toString("hex");
-  return `${ts}-${rand}.jpg`;
-}
 
 function isHeicLike(contentType?: string | null, filename?: string | null): boolean {
   const normalizedType = contentType?.trim().toLowerCase() ?? "";
@@ -91,11 +77,5 @@ export async function processAndSaveBillImage(file: File): Promise<string> {
     });
   }
 
-  const filename = uniqueFilename();
-  const outputDir = uploadsDir();
-
-  await mkdir(outputDir, { recursive: true });
-  await writeFile(path.join(outputDir, filename), outputBuffer);
-
-  return `/uploads/${filename}`;
+  return `data:image/jpeg;base64,${outputBuffer.toString("base64")}`;
 }
