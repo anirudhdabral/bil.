@@ -16,7 +16,10 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const inputBuffer = Buffer.from(await file.arrayBuffer());
-    const outputBuffer = await normalizeBillImageBuffer(inputBuffer);
+    const outputBuffer = await normalizeBillImageBuffer(inputBuffer, {
+      contentType: file.type,
+      filename: file.name,
+    });
 
     return new Response(new Uint8Array(outputBuffer), {
       status: 200,
