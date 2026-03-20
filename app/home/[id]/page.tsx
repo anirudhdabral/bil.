@@ -5,7 +5,12 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { FiArrowLeft, FiFileText, FiFolderPlus, FiUserPlus } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiFileText,
+  FiFolderPlus,
+  FiUserPlus,
+} from "react-icons/fi";
 
 import { AddBillForm } from "../../../components/forms/AddBillForm";
 import { AddCategoryForm } from "../../../components/forms/AddCategoryForm";
@@ -25,8 +30,8 @@ import { setSelectedHomeId } from "../../../lib/redux/slices/selectedHomeSlice";
 import {
   setAddBillOpen,
   setAddCategoryOpen,
-  setInviteUserOpen,
   setGlobalError,
+  setInviteUserOpen,
 } from "../../../lib/redux/slices/uiSlice";
 
 export default function HomeDetailsPage() {
@@ -36,49 +41,70 @@ export default function HomeDetailsPage() {
   const { data: session } = useSession();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
 
-  const isAddCategoryOpen = useAppSelector((state) => state.ui.isAddCategoryOpen);
+  const isAddCategoryOpen = useAppSelector(
+    (state) => state.ui.isAddCategoryOpen,
+  );
   const isAddBillOpen = useAppSelector((state) => state.ui.isAddBillOpen);
   const isInviteUserOpen = useAppSelector((state) => state.ui.isInviteUserOpen);
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: homeId },
   });
-  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
-    variables: { homeId },
-  });
+  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(
+    GET_CATEGORIES_BY_HOME,
+    {
+      variables: { homeId },
+    },
+  );
   const categories = useMemo(
     () => categoryQuery.data?.getCategoriesByHome ?? [],
-    [categoryQuery.data?.getCategoriesByHome]
+    [categoryQuery.data?.getCategoriesByHome],
   );
 
   const effectiveCategoryId = useMemo(() => {
     if (!selectedCategoryId) return "";
-    return categories.some((c) => c.id === selectedCategoryId) ? selectedCategoryId : "";
+    return categories.some((c) => c.id === selectedCategoryId)
+      ? selectedCategoryId
+      : "";
   }, [categories, selectedCategoryId]);
 
   const billsQuery = useQuery<{ getBillsByHome: Bill[] }>(GET_BILLS_BY_HOME, {
     variables: { homeId },
     skip: !!effectiveCategoryId,
   });
-  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(GET_BILLS_BY_CATEGORY, {
-    variables: { categoryId: effectiveCategoryId },
-    skip: !effectiveCategoryId,
-  });
+  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(
+    GET_BILLS_BY_CATEGORY,
+    {
+      variables: { categoryId: effectiveCategoryId },
+      skip: !effectiveCategoryId,
+    },
+  );
 
   const loading =
-    homeQuery.loading || categoryQuery.loading || billsQuery.loading || billsByCategoryQuery.loading;
+    homeQuery.loading ||
+    categoryQuery.loading ||
+    billsQuery.loading ||
+    billsByCategoryQuery.loading;
   const home = homeQuery.data?.getHomeById ?? null;
 
   const bills = useMemo(() => {
     const raw = effectiveCategoryId
-      ? billsByCategoryQuery.data?.getBillsByCategory ?? []
-      : billsQuery.data?.getBillsByHome ?? [];
-    return [...raw].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [effectiveCategoryId, billsByCategoryQuery.data?.getBillsByCategory, billsQuery.data?.getBillsByHome]);
+      ? (billsByCategoryQuery.data?.getBillsByCategory ?? [])
+      : (billsQuery.data?.getBillsByHome ?? []);
+    return [...raw].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+  }, [
+    effectiveCategoryId,
+    billsByCategoryQuery.data?.getBillsByCategory,
+    billsQuery.data?.getBillsByHome,
+  ]);
 
   const viewerEmail = session?.user?.email?.toLowerCase();
   const isOwner =
-    !!home && !!viewerEmail && home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
+    !!home &&
+    !!viewerEmail &&
+    home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
 
   const errorMessage =
     homeQuery.error?.message ||
@@ -99,19 +125,23 @@ export default function HomeDetailsPage() {
     <main className="min-h-screen">
       {/* ── Top bar ── */}
       <div className="sticky top-14 z-20 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="mx-auto py-8 flex h-12 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           {/* Left: back + title */}
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
             >
               <FiArrowLeft className="h-4 w-4" />
             </Link>
             {home ? (
               <div className="min-w-0">
-                <p className="truncate text-sm font-black text-[#1a1208]">{home.houseNo}</p>
-                <p className="truncate text-xs text-[#b8926a]">{home.address}</p>
+                <p className="truncate text-lg font-black text-[#1a1208]">
+                  {home.houseNo}
+                </p>
+                <p className="truncate text-xs text-[#b8926a]">
+                  {home.address}
+                </p>
               </div>
             ) : (
               loading && <LoadingSpinner className="h-4 w-4 text-amber-500" />
@@ -125,7 +155,7 @@ export default function HomeDetailsPage() {
                 type="button"
                 id="invite-user-btn"
                 onClick={() => dispatch(setInviteUserOpen(true))}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-amber-600 transition hover:border-amber-300 hover:bg-amber-50"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-amber-600 transition hover:border-amber-300 hover:bg-amber-50"
                 title="Invite User"
               >
                 <FiUserPlus className="h-4 w-4" />
@@ -135,7 +165,7 @@ export default function HomeDetailsPage() {
               type="button"
               id="add-bill-btn"
               onClick={() => dispatch(setAddBillOpen(true))}
-              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-xs font-bold text-[#1a1208] shadow-sm transition hover:bg-amber-500 active:scale-95"
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-2.5 text-xs font-bold text-[#1a1208] shadow-sm transition hover:bg-amber-500 active:scale-95"
             >
               <FiFileText className="h-3.5 w-3.5" />
               Add Bill
@@ -147,7 +177,10 @@ export default function HomeDetailsPage() {
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6">
         {/* ── Categories horizontal scroll ── */}
         <div className="mb-6">
-          <div className="flex items-center overflow-x-auto gap-2 pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]" style={{ msOverflowStyle: "none" }}>
+          <div
+            className="flex items-center overflow-x-auto gap-2 pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
+            style={{ msOverflowStyle: "none" }}
+          >
             {/* "All" pill */}
             <button
               type="button"
@@ -209,15 +242,24 @@ export default function HomeDetailsPage() {
       <Modal
         title="Add Category"
         open={isAddCategoryOpen}
-        onClose={() => { dispatch(setAddCategoryOpen(false)); dispatch(setGlobalError(null)); }}
+        onClose={() => {
+          dispatch(setAddCategoryOpen(false));
+          dispatch(setGlobalError(null));
+        }}
       >
-        <AddCategoryForm homeId={homeId} onSuccess={() => dispatch(setAddCategoryOpen(false))} />
+        <AddCategoryForm
+          homeId={homeId}
+          onSuccess={() => dispatch(setAddCategoryOpen(false))}
+        />
       </Modal>
 
       <Modal
         title="Add Bill"
         open={isAddBillOpen}
-        onClose={() => { dispatch(setAddBillOpen(false)); dispatch(setGlobalError(null)); }}
+        onClose={() => {
+          dispatch(setAddBillOpen(false));
+          dispatch(setGlobalError(null));
+        }}
       >
         <AddBillForm
           homeId={homeId}
@@ -229,9 +271,15 @@ export default function HomeDetailsPage() {
       <Modal
         title="Invite User"
         open={isInviteUserOpen}
-        onClose={() => { dispatch(setInviteUserOpen(false)); dispatch(setGlobalError(null)); }}
+        onClose={() => {
+          dispatch(setInviteUserOpen(false));
+          dispatch(setGlobalError(null));
+        }}
       >
-        <AddInviteForm homeId={homeId} onSuccess={() => dispatch(setInviteUserOpen(false))} />
+        <AddInviteForm
+          homeId={homeId}
+          onSuccess={() => dispatch(setInviteUserOpen(false))}
+        />
       </Modal>
     </main>
   );

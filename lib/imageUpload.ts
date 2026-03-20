@@ -6,7 +6,6 @@ import { GraphQLError } from "graphql";
 import sharp from "sharp";
 
 const MAX_UPLOAD_SIZE_BYTES = 2 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
 function uploadsDir(): string {
   return path.join(process.cwd(), "public", "uploads");
@@ -19,8 +18,8 @@ function uniqueFilename(): string {
 }
 
 export async function processAndSaveBillImage(file: File): Promise<string> {
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    throw new GraphQLError("Only JPEG and PNG images are allowed", {
+  if (!file.type.startsWith("image/")) {
+    throw new GraphQLError("Only image files are allowed", {
       extensions: { code: "BAD_USER_INPUT" },
     });
   }

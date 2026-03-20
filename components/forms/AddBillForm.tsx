@@ -107,8 +107,8 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
       return;
     }
 
-    if (image && !["image/jpeg", "image/png"].includes(image.type)) {
-      setFormError("Only JPEG and PNG images are allowed.");
+    if (image && !image.type.startsWith("image/")) {
+      setFormError("Only image files are allowed.");
       return;
     }
 
@@ -280,7 +280,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
           onChange={(event) => setRemarks(event.target.value)}
           className="mt-1.5 w-full rounded-xl border border-[#e8d8c0] bg-white/80 px-3.5 py-2.5 text-sm text-[#1a1208] placeholder-[#c4a882] transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
           rows={3}
-          placeholder="Optional remarks…"
+          placeholder="Optional remarks..."
         />
       </label>
 
@@ -308,7 +308,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         <input
           id={fileInputId}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/*"
           onChange={(event) => setImage(event.target.files?.[0] ?? null)}
           className="hidden"
         />
@@ -342,7 +342,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         {image ? (
           <p className="truncate text-xs font-medium text-[#78604a]">{image.name}</p>
         ) : (
-          <p className="text-xs text-[#b8926a]">JPEG/PNG only, max 2MB.</p>
+          <p className="text-xs text-[#b8926a]">Any image type, max 2MB.</p>
         )}
         {imagePreviewUrl ? (
           <div className="overflow-hidden rounded-xl border border-[#e8d8c0] bg-[#fef9f2] p-2">
@@ -358,7 +358,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
           <div className="border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
             <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Camera Capture</p>
           </div>
-          <div className="px-4 pb-4 space-y-3">
+          <div className="space-y-3 px-4 pb-4">
             {!capturedPreviewUrl ? (
               <>
                 <video
@@ -446,7 +446,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         disabled={loading || categories.length === 0}
         className="w-full rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition hover:bg-amber-500 active:scale-[0.98] disabled:opacity-60"
       >
-        {loading ? "Saving…" : "Save Bill"}
+        {loading ? "Saving..." : "Save Bill"}
       </button>
       {categories.length === 0 ? (
         <p className="text-xs font-medium text-amber-700">Add a category before creating a bill.</p>
