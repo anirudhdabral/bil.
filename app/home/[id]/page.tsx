@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@apollo/client/react";
+import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -18,6 +19,7 @@ import { AddInviteForm } from "../../../components/forms/AddInviteForm";
 import { BillList } from "../../../components/lists/BillList";
 import { LoadingSpinner } from "../../../components/ui/LoadingSpinner";
 import { Modal } from "../../../components/ui/Modal";
+import { RefetchButton } from "../../../components/ui/RefetchButton";
 import {
   GET_BILLS_BY_CATEGORY,
   GET_BILLS_BY_HOME,
@@ -41,9 +43,7 @@ export default function HomeDetailsPage() {
   const { data: session } = useSession();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
 
-  const isAddCategoryOpen = useAppSelector(
-    (state) => state.ui.isAddCategoryOpen,
-  );
+  const isAddCategoryOpen = useAppSelector((state) => state.ui.isAddCategoryOpen);
   const isAddBillOpen = useAppSelector((state) => state.ui.isAddBillOpen);
   const isInviteUserOpen = useAppSelector((state) => state.ui.isInviteUserOpen);
 
@@ -83,6 +83,14 @@ export default function HomeDetailsPage() {
       fetchPolicy: "cache-first",
     },
   );
+
+  const manualRefetch = async () => {
+    await Promise.all([
+      homeQuery.refetch(),
+      categoryQuery.refetch(),
+      effectiveCategoryId ? billsByCategoryQuery.refetch() : billsQuery.refetch(),
+    ]);
+  };
 
   const loading =
     homeQuery.loading ||
@@ -128,25 +136,35 @@ export default function HomeDetailsPage() {
   return (
     <main className="min-h-screen">
       {/* ── Top bar ── */}
-      <div className="sticky top-14 z-20 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md">
+      <motion.div 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="sticky top-14 z-20 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md"
+      >
         <div className="mx-auto py-8 flex h-12 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           {/* Left: back + title */}
           <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
-            >
-              <FiArrowLeft className="h-4 w-4" />
-            </Link>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Link
+                href="/"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
+              >
+                <FiArrowLeft className="h-4 w-4" />
+              </Link>
+            </motion.div>
             {home ? (
-              <div className="min-w-0">
+              <motion.div 
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="min-w-0"
+              >
                 <p className="truncate text-lg font-black text-[#1a1208]">
                   {home.houseNo}
                 </p>
                 <p className="truncate text-xs text-[#b8926a]">
                   {home.address}
                 </p>
-              </div>
+              </motion.div>
             ) : (
               loading && <LoadingSpinner className="h-5 w-5 text-amber-500" />
             )}
@@ -154,8 +172,11 @@ export default function HomeDetailsPage() {
 
           {/* Right: action buttons */}
           <div className="flex shrink-0 items-center gap-2">
+            <RefetchButton refetch={manualRefetch} />
             {isOwner && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 type="button"
                 id="invite-user-btn"
                 onClick={() => dispatch(setInviteUserOpen(true))}
@@ -163,9 +184,11 @@ export default function HomeDetailsPage() {
                 title="Invite User"
               >
                 <FiUserPlus className="h-4 w-4" />
-              </button>
+              </motion.button>
             )}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               id="add-bill-btn"
               onClick={() => dispatch(setAddBillOpen(true))}
@@ -173,20 +196,26 @@ export default function HomeDetailsPage() {
             >
               <FiFileText className="h-3.5 w-3.5" />
               Add Bill
-            </button>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6">
         {/* ── Categories horizontal scroll ── */}
-        <div className="mb-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
           <div
             className="flex items-center overflow-x-auto gap-2 pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
             style={{ msOverflowStyle: "none" }}
           >
             {/* "All" pill */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => setSelectedCategoryId("")}
               className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
@@ -196,12 +225,14 @@ export default function HomeDetailsPage() {
               }`}
             >
               All
-            </button>
+            </motion.button>
 
             {/* Category pills */}
             {categories.map((cat) => (
-              <button
+              <motion.button
                 key={cat.id}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
@@ -211,14 +242,16 @@ export default function HomeDetailsPage() {
                 }`}
               >
                 {cat.name}
-              </button>
+              </motion.button>
             ))}
 
             {/* Divider + Add category button at far right */}
             {categories.length > 0 && (
               <div className="shrink-0 mx-1 h-5 w-px bg-[#e8d8c0]" />
             )}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               id="add-category-btn"
               onClick={() => dispatch(setAddCategoryOpen(true))}
@@ -226,20 +259,30 @@ export default function HomeDetailsPage() {
             >
               <FiFolderPlus className="h-4 w-4" />
               Add
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Loading ── */}
         {loading && (
-          <div className="mb-5 flex items-center gap-2.5 rounded-2xl border border-[#e8d8c0] bg-white/70 px-4 py-3 text-[#78604a]">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-5 flex items-center gap-2.5 rounded-2xl border border-[#e8d8c0] bg-white/70 px-4 py-3 text-[#78604a]"
+          >
             <LoadingSpinner className="h-4 w-4" />
             <span className="text-sm font-medium">Loading...</span>
-          </div>
+          </motion.div>
         )}
 
         {/* ── Bills ── */}
-        <BillList bills={bills} />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <BillList bills={bills} />
+        </motion.div>
       </div>
 
       {/* ── Modals ── */}

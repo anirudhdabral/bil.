@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@apollo/client/react";
+import { motion, Variants } from "framer-motion";
 import { useEffect } from "react";
 import { FiCheck, FiHome, FiPlus, FiX } from "react-icons/fi";
 
@@ -8,6 +9,7 @@ import { HomeCard } from "../components/cards/HomeCard";
 import { AddHomeForm } from "../components/forms/AddHomeForm";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { Modal } from "../components/ui/Modal";
+import { RefetchButton } from "../components/ui/RefetchButton";
 import {
   ACCEPT_HOME_INVITE,
   DECLINE_HOME_INVITE,
@@ -23,14 +25,20 @@ export default function HomePage() {
   const dispatch = useAppDispatch();
   const isAddHomeOpen = useAppSelector((state) => state.ui.isAddHomeOpen);
 
-  const { data, loading, error } = useQuery<{ getHomes: Home[] }>(GET_HOMES, {
+  const { data, loading, error, refetch: refetchHomes } = useQuery<{ getHomes: Home[] }>(GET_HOMES, {
     fetchPolicy: "cache-first",
   });
-  const pendingInvitesQuery = useQuery<{ getPendingHomeInvites: Home[] }>(GET_PENDING_HOME_INVITES, {
+  const { 
+    data: pendingData, 
+    loading: pendingLoading, 
+    error: pendingError, 
+    refetch: refetchInvites 
+  } = useQuery<{ getPendingHomeInvites: Home[] }>(GET_PENDING_HOME_INVITES, {
     fetchPolicy: "cache-first",
   });
+  
   const homes = data?.getHomes ?? [];
-  const pendingInvites = pendingInvitesQuery.data?.getPendingHomeInvites ?? [];
+  const pendingInvites = pendingData?.getPendingHomeInvites ?? [];
 
   const [acceptInvite, acceptInviteState] = useMutation(ACCEPT_HOME_INVITE, {
     refetchQueries: [{ query: GET_HOMES }, { query: GET_PENDING_HOME_INVITES }],
@@ -43,11 +51,11 @@ export default function HomePage() {
   });
 
   useEffect(() => {
-    const message = error?.message || pendingInvitesQuery.error?.message || null;
+    const message = error?.message || pendingError?.message || null;
     if (message) {
       dispatch(setGlobalError(message));
     }
-  }, [dispatch, error?.message, pendingInvitesQuery.error?.message]);
+  }, [dispatch, error?.message, pendingError?.message]);
 
   async function onAcceptInvite(homeId: string) {
     try {
@@ -75,12 +83,39 @@ export default function HomePage() {
     }
   }
 
+  const manualRefetch = async () => {
+    await Promise.all([refetchHomes(), refetchInvites()]);
+  };
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 300, damping: 24 }
+    }
+  };
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
 
         {/* Page Header */}
-        <header className="mb-8">
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-[#b8926a]">
@@ -92,41 +127,61 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-3">
               {!loading ? (
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"
+                >
                   {homes.length} {homes.length === 1 ? "home" : "homes"}
-                </span>
+                </motion.span>
               ) : null}
-              <button
+              
+              <RefetchButton refetch={manualRefetch} size={20} />
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 id="add-home-btn"
                 onClick={() => dispatch(setAddHomeOpen(true))}
-                className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition hover:bg-amber-500 hover:shadow-amber-300 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition-colors hover:bg-amber-500 active:scale-95"
               >
                 <FiPlus className="h-4 w-4" />
                 Add Home
-              </button>
+              </motion.button>
             </div>
           </div>
-        </header>
+        </motion.header>
 
         {/* Loading */}
-        {loading ? (
-          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#e8d8c0] bg-white/70 px-4 py-3.5 text-[#78604a] shadow-sm">
+        {loading && !homes.length ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 flex items-center gap-3 rounded-2xl border border-[#e8d8c0] bg-white/70 px-4 py-3.5 text-[#78604a] shadow-sm"
+          >
             <LoadingSpinner className="h-4 w-4" />
             <span className="text-sm font-medium">Loading homes...</span>
-          </div>
+          </motion.div>
         ) : null}
 
         {/* Pending Invites */}
-        {!pendingInvitesQuery.loading && pendingInvites.length > 0 ? (
-          <section className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/80">
+        {!pendingLoading && pendingInvites.length > 0 ? (
+          <motion.section 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/80"
+          >
             <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-4 py-3">
               <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
               <h2 className="text-sm font-bold text-amber-900">Pending Invites</h2>
             </div>
             <div className="divide-y divide-amber-100 p-4 space-y-2">
               {pendingInvites.map((invite) => (
-                <div
+                <motion.div
+                  variants={itemVariants}
+                  initial="hidden"
+                  animate="visible"
                   key={invite.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white/80 px-4 py-3"
                 >
@@ -135,7 +190,9 @@ export default function HomePage() {
                     <p className="text-xs text-[#78604a] mt-0.5">{invite.address}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={() => void onAcceptInvite(invite.id)}
                       disabled={acceptInviteState.loading || declineInviteState.loading}
@@ -143,8 +200,10 @@ export default function HomePage() {
                     >
                       <FiCheck className="h-3.5 w-3.5" />
                       Accept
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={() => void onDeclineInvite(invite.id)}
                       disabled={acceptInviteState.loading || declineInviteState.loading}
@@ -152,17 +211,21 @@ export default function HomePage() {
                     >
                       <FiX className="h-3.5 w-3.5" />
                       Decline
-                    </button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
-          </section>
+          </motion.section>
         ) : null}
 
         {/* Empty state */}
         {!loading && homes.length === 0 ? (
-          <div className="mb-6 flex flex-col items-center rounded-3xl border-2 border-dashed border-[#e8d8c0] bg-white/50 px-8 py-16 text-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6 flex flex-col items-center rounded-3xl border-2 border-dashed border-[#e8d8c0] bg-white/50 px-8 py-16 text-center"
+          >
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 ring-4 ring-amber-50">
               <FiHome className="h-7 w-7 text-amber-600" />
             </div>
@@ -170,27 +233,35 @@ export default function HomePage() {
             <p className="mt-1.5 text-sm text-[#78604a]">
               Create your first home to get started.
             </p>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => dispatch(setAddHomeOpen(true))}
               className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm transition hover:bg-amber-500 active:scale-95"
             >
               <FiPlus className="h-4 w-4" />
               Create First Home
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         ) : null}
 
         {/* Homes Grid */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.section 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {homes.map((home) => (
-            <HomeCard
-              key={home.id}
-              home={home}
-              onSelect={(homeId) => dispatch(setSelectedHomeId(homeId))}
-            />
+            <motion.div key={home.id} variants={itemVariants}>
+              <HomeCard
+                home={home}
+                onSelect={(homeId) => dispatch(setSelectedHomeId(homeId))}
+              />
+            </motion.div>
           ))}
-        </section>
+        </motion.section>
       </div>
 
       <Modal

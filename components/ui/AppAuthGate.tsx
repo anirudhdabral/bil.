@@ -2,40 +2,69 @@
 
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { LoadingSpinner } from "./LoadingSpinner";
+import { getCookie, setCookie, deleteCookie } from "../../lib/cookies";
 
 export function AppAuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  
+  // Use a constant for the cached session from cookie instead of state to avoid lint errors
+  // We only read it once on mount (client-side)
+  const cachedSession = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const cookieData = getCookie("bm_auth_session");
+    if (cookieData) {
+      try {
+        return JSON.parse(cookieData);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, []);
 
+  // Sync session to cookie (side effect)
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      setCookie("bm_auth_session", JSON.stringify(session));
+    } else if (status === "unauthenticated") {
+      deleteCookie("bm_auth_session");
+    }
+  }, [session, status]);
+
+  const activeSession = session || cachedSession;
   const isLoginRoute = pathname === "/login";
   const isPendingRoute = pathname === "/pending";
-  const isApproved = Boolean(session?.user?.approved || session?.user?.role === "SUPER_ADMIN");
+  const isApproved = Boolean(activeSession?.user?.approved || activeSession?.user?.role === "SUPER_ADMIN");
 
   useEffect(() => {
-    if (status === "unauthenticated" && !isLoginRoute) {
+    // If we have NO session (NextAuth says unauth AND no cookie), redirect to login
+    if (status === "unauthenticated" && !cachedSession && !isLoginRoute) {
       router.replace("/login");
       return;
     }
 
-    if (status !== "authenticated") {
-      return;
-    }
+    // If we have a session (either NextAuth or cookie)
+    if (activeSession) {
+      if (!isApproved && !isPendingRoute) {
+        router.replace("/pending");
+        return;
+      }
 
-    if (!isApproved && !isPendingRoute) {
-      router.replace("/pending");
-      return;
+      if ((isLoginRoute || isPendingRoute) && isApproved) {
+        router.replace("/");
+      }
     }
+  }, [activeSession, isApproved, isLoginRoute, isPendingRoute, router, status, cachedSession]);
 
-    if ((isLoginRoute || isPendingRoute) && isApproved) {
-      router.replace("/");
-    }
-  }, [isApproved, isLoginRoute, isPendingRoute, router, status]);
+  const isLoading = status === "loading" && !cachedSession;
+  const isFullyUnauthenticated = status === "unauthenticated" && !cachedSession;
 
-  if (!isLoginRoute && status === "loading") {
+  if (!isLoginRoute && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
         <div className="flex flex-col items-center gap-4">
@@ -48,7 +77,7 @@ export function AppAuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isLoginRoute && (status === "unauthenticated" || (status === "authenticated" && !isApproved && !isPendingRoute))) {
+  if (!isLoginRoute && (isFullyUnauthenticated || (activeSession && !isApproved && !isPendingRoute))) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
         <div className="flex flex-col items-center gap-4">
@@ -56,7 +85,7 @@ export function AppAuthGate({ children }: { children: React.ReactNode }) {
             <LoadingSpinner className="h-6 w-6 text-amber-600" />
           </div>
           <p className="text-sm font-semibold text-[#78604a]">
-            {status === "unauthenticated" ? "Redirecting to login..." : "Redirecting to approval queue..."}
+            {isFullyUnauthenticated ? "Redirecting to login..." : "Redirecting to approval queue..."}
           </p>
         </div>
       </div>

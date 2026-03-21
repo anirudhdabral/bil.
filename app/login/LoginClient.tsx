@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -44,8 +45,17 @@ export default function LoginClient({ error }: LoginClientProps) {
       }}
     >
       <section className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 ring-4 ring-amber-50 shadow-sm">
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 flex flex-col items-center"
+        >
+          <motion.div 
+            initial={{ scale: 0.8, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", damping: 15 }}
+            className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 ring-4 ring-amber-50 shadow-sm"
+          >
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
               <circle
                 cx="16"
@@ -73,16 +83,21 @@ export default function LoginClient({ error }: LoginClientProps) {
               />
               <circle cx="16" cy="16" r="2" fill="#d97706" />
             </svg>
-          </div>
+          </motion.div>
           <h1 className="text-3xl font-black tracking-tight text-[#1a1208]">
             Bil<span className="text-amber-500">.</span>
           </h1>
           <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-[#b8926a]">
             Manage your bills
           </p>
-        </div>
+        </motion.div>
 
-        <div className="overflow-hidden rounded-3xl border border-[#e8d8c0] bg-white/90 shadow-xl shadow-amber-900/10 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="overflow-hidden rounded-3xl border border-[#e8d8c0] bg-white/90 shadow-xl shadow-amber-900/10 backdrop-blur-sm"
+        >
           <div className="border-b border-[#e8d8c0] bg-[#fef9f2] px-6 py-5">
             <h2 className="text-base font-bold text-[#1a1208]">Welcome back</h2>
             <p className="mt-0.5 text-sm text-[#78604a]">
@@ -92,16 +107,22 @@ export default function LoginClient({ error }: LoginClientProps) {
 
           <div className="space-y-4 p-6">
             {errorMessage ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
                 {errorMessage}
-              </div>
+              </motion.div>
             ) : null}
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               id="google-sign-in"
               type="button"
               onClick={() => signIn("google", { callbackUrl: "/" })}
-              className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-[#e8d8c0] bg-white px-4 py-3 text-sm font-semibold text-[#1a1208] shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:shadow active:scale-[0.98]"
+              className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-[#e8d8c0] bg-white px-4 py-3 text-sm font-semibold text-[#1a1208] shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:shadow"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path
@@ -122,9 +143,9 @@ export default function LoginClient({ error }: LoginClientProps) {
                 />
               </svg>
               Continue with Google
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
       </section>
     </main>
   );

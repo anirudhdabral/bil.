@@ -9,6 +9,7 @@ import {
   type TypePolicies,
 } from "@apollo/client";
 import { print } from "graphql";
+import { getCookie, setCookie } from "../cookies";
 
 const GRAPHQL_ENDPOINT = "/api/graphql";
 
@@ -100,11 +101,39 @@ function buildRequestBody(query: string, operationName: string | undefined, vari
 
 function createUploadLink(): ApolloLink {
   return new ApolloLink((operation) => {
-    return new Observable((observer) => {
-      const query = print(operation.query);
-      const variables = (operation.variables ?? {}) as JsonObject;
+    const context = operation.getContext();
+    const isMutation = operation.query.definitions.some(
+      (def) => "operation" in def && def.operation === "mutation"
+    );
 
-      const { body, headers } = buildRequestBody(query, operation.operationName, variables);
+    const queryStr = print(operation.query);
+    const variables = (operation.variables ?? {}) as JsonObject;
+    const cacheKey = `apc_${operation.operationName || "anon"}_${JSON.stringify(variables).replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`;
+
+    // Skip cookie cache for mutations, explicit skips, or network-only policies
+    const skipCache = 
+      isMutation || 
+      context.skipCookieCache || 
+      context.fetchPolicy === "network-only" || 
+      context.fetchPolicy === "no-cache";
+
+    if (!skipCache) {
+      const cached = getCookie(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as FetchResult;
+          return new Observable((observer) => {
+            observer.next(parsed);
+            observer.complete();
+          });
+        } catch {
+          // Bad data, proceed to fetch
+        }
+      }
+    }
+
+    return new Observable((observer) => {
+      const { body, headers } = buildRequestBody(queryStr, operation.operationName, variables);
 
       fetch(GRAPHQL_ENDPOINT, {
         method: "POST",
@@ -121,6 +150,18 @@ function createUploadLink(): ApolloLink {
           return (await response.json()) as FetchResult;
         })
         .then((result) => {
+          // Only cache queries that succeeded and didn't have errors
+          if (!isMutation && result.data && !result.errors) {
+            try {
+              const str = JSON.stringify(result);
+              // Simple check for cookie size limit (approx 4KB)
+              if (str.length < 3800) {
+                setCookie(cacheKey, str);
+              }
+            } catch {
+              // Ignore serialization/cookie errors
+            }
+          }
           observer.next(result);
           observer.complete();
         })
@@ -137,7 +178,6 @@ const typePolicies: TypePolicies = {
   Bill: { keyFields: ["id"] },
   Query: {
     fields: {
-      // Merge paginated / filtered bill lists into the cache by their args key
       getBillsByHome: { keyArgs: ["homeId"] },
       getBillsByCategory: { keyArgs: ["categoryId"] },
       getCategoriesByHome: { keyArgs: ["homeId"] },

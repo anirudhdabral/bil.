@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -25,9 +26,7 @@ export function BillCard({ bill }: { bill: Bill }) {
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
-    if (!isPreviewOpen) {
-      return;
-    }
+    if (!isPreviewOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -64,63 +63,86 @@ export function BillCard({ bill }: { bill: Bill }) {
     typeof document !== "undefined" && isPreviewOpen && bill.imageUrl
       ? createPortal(
           <div className="fixed inset-0 z-120 bg-black/95">
-            <button
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               type="button"
               aria-label="Close preview"
               onClick={closePreview}
               className="absolute inset-0 h-full w-full cursor-default"
             />
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-130 flex items-start justify-between gap-3 p-3 sm:p-5">
+            <motion.div 
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="pointer-events-none absolute inset-x-0 top-0 z-130 flex items-start justify-between gap-3 p-3 sm:p-5"
+            >
               <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/55 px-2 py-2 text-white backdrop-blur-md">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   type="button"
                   onClick={zoomOut}
                   aria-label="Zoom out"
                   className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
                 >
                   <FiMinus className="h-4 w-4" />
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   type="button"
                   onClick={zoomIn}
                   aria-label="Zoom in"
                   className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
                 >
                   <FiPlus className="h-4 w-4" />
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   type="button"
                   onClick={() => setZoom(1)}
                   aria-label="Reset zoom"
                   className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
                 >
                   <FiRefreshCcw className="h-4 w-4" />
-                </button>
+                </motion.button>
                 <span className="min-w-14 text-center text-sm font-medium text-white/85">{Math.round(zoom * 100)}%</span>
               </div>
 
               <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/55 px-2 py-2 text-white backdrop-blur-md">
-                <a
+                <motion.a
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   href={bill.imageUrl}
                   download
                   aria-label="Download image"
                   className="inline-flex items-center justify-center rounded-xl bg-amber-400 p-2.5 text-[#1a1208] transition hover:bg-amber-500"
                 >
                   <FiDownload className="h-4 w-4" />
-                </a>
-                <button
+                </motion.a>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   type="button"
                   onClick={closePreview}
                   aria-label="Close preview"
                   className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
                 >
                   <FiX className="h-4 w-4" />
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="absolute inset-0 overflow-auto">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="absolute inset-0 overflow-auto"
+            >
               <div className="relative flex min-h-screen min-w-full items-center justify-center p-6 sm:p-10">
                 <div
                   className="relative h-[calc(100vh-3rem)] w-[calc(100vw-3rem)] sm:h-[calc(100vh-5rem)] sm:w-[calc(100vw-5rem)]"
@@ -136,7 +158,7 @@ export function BillCard({ bill }: { bill: Bill }) {
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>,
           document.body
         )
@@ -144,7 +166,10 @@ export function BillCard({ bill }: { bill: Bill }) {
 
   return (
     <>
-      <article className="group overflow-hidden rounded-2xl border border-[#e8d8c0] bg-white/80 shadow-sm transition-all hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md hover:shadow-amber-100">
+      <motion.article 
+        whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(245, 158, 11, 0.2)" }}
+        className="group overflow-hidden rounded-2xl border border-[#e8d8c0] bg-white/80 shadow-sm transition-all duration-300"
+      >
         {bill.imageUrl ? (
           <button
             type="button"
@@ -155,14 +180,18 @@ export function BillCard({ bill }: { bill: Bill }) {
               src={bill.imageUrl}
               alt={`Bill for ${bill.category.name}`}
               fill
-              className="object-cover transition duration-300 group-hover:scale-[1.03]"
+              className="object-cover transition duration-500 group-hover:scale-[1.05]"
               sizes="(max-width: 768px) 100vw, 33vw"
             />
-            <span className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+            <span className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            <motion.span 
+              initial={{ y: 5, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+            >
               <FiEye className="h-3 w-3" />
               Preview
-            </span>
+            </motion.span>
           </button>
         ) : (
           <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 bg-[#fef9f2]">
@@ -185,8 +214,10 @@ export function BillCard({ bill }: { bill: Bill }) {
             {bill.remarks?.trim() ? bill.remarks : "No remarks"}
           </p>
         </div>
-      </article>
-      {previewOverlay}
+      </motion.article>
+      <AnimatePresence>
+        {previewOverlay}
+      </AnimatePresence>
     </>
   );
 }

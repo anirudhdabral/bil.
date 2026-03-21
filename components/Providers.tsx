@@ -16,7 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const apolloClient = useMemo(() => createApolloClient(), []);
 
   return (
-    <SessionProvider>
+    <SessionProvider refetchOnWindowFocus={false} refetchInterval={0}>
       <Provider store={store}>
         <ApolloProvider client={apolloClient}>
           <ServiceWorkerRegistration />

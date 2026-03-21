@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-import User, { USER_ROLES, type UserRole } from "../models/User";
+import User, { USER_ROLES } from "../models/User";
 import { connectToDatabase } from "./mongodb";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -27,27 +27,36 @@ async function syncUserAccess({ email, name, image }: SyncUserInput) {
 
   const normalizedEmail = email.trim().toLowerCase();
   const isSuperAdmin = !!superAdminEmail && normalizedEmail === superAdminEmail;
-  const existingUser = await User.findOne({ email: normalizedEmail });
 
-  const nextRole: UserRole = isSuperAdmin ? USER_ROLES.SUPER_ADMIN : (existingUser?.role ?? USER_ROLES.USER);
-  const nextApproved = isSuperAdmin ? true : (existingUser?.approved ?? false);
+  // Check existence before the upsert so we can track new vs returning users.
+  // This is only called once per login (jwt callback guards with !user check),
+  // so the extra read is acceptable.
+  const alreadyExisted = await User.exists({ email: normalizedEmail });
 
+  // Single upsert: $set refreshes profile fields (name/image) on every login;
+  // $setOnInsert sets role/approved only when creating a new document so that
+  // any admin-granted role or approval status already in the DB is preserved.
   const dbUser = await User.findOneAndUpdate(
     { email: normalizedEmail },
     {
-      email: normalizedEmail,
-      name: name?.trim() || existingUser?.name || null,
-      image: image?.trim() || existingUser?.image || null,
-      role: nextRole,
-      approved: nextApproved,
+      $set: {
+        email: normalizedEmail,
+        ...(name?.trim() ? { name: name.trim() } : {}),
+        ...(image?.trim() ? { image: image.trim() } : {}),
+        // Super-admin always gets elevated role + approved on every login
+        ...(isSuperAdmin ? { role: USER_ROLES.SUPER_ADMIN, approved: true } : {}),
+      },
+      $setOnInsert: {
+        // Only applied when the document is brand-new (upsert insert)
+        ...(!isSuperAdmin ? { role: USER_ROLES.USER, approved: false } : {}),
+      },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
   return {
-    allowed: true as const,
     dbUser,
-    existedBeforeSignIn: Boolean(existingUser),
+    existedBeforeSignIn: Boolean(alreadyExisted),
   };
 }
 
@@ -84,7 +93,16 @@ export const authOptions: NextAuthOptions = {
 
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // Only sync with DB on initial sign-in (user object is present)
+      // or when an explicit session update is triggered.
+      // On every other call (session polls, page navigations) just return
+      // the existing token — avoids a MongoDB round-trip per request and
+      // prevents transient DB errors from invalidating the session.
+      if (!user && trigger !== "update") {
+        return token;
+      }
+
       const normalizedEmail = (user?.email ?? token.email)?.trim().toLowerCase();
       if (!normalizedEmail) {
         return token;
@@ -96,7 +114,7 @@ export const authOptions: NextAuthOptions = {
         image: user?.image ?? (typeof token.picture === "string" ? token.picture : null),
       });
 
-      if (!result.allowed || !result.dbUser) {
+      if (!result.dbUser) {
         return token;
       }
 
