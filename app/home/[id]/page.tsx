@@ -1,11 +1,20 @@
 "use client";
 
-import { useQuery } from "@apollo/client/react";
+import { useQuery, useApolloClient } from "@apollo/client/react";
+import { NetworkStatus } from "@apollo/client";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { FiArrowLeft, FiFileText, FiFolderPlus, FiUserPlus } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiCalendar,
+  FiChevronLeft,
+  FiChevronRight,
+  FiFileText,
+  FiFolderPlus,
+  FiUserPlus,
+} from "react-icons/fi";
 
 import { AddBillForm } from "../../../components/forms/AddBillForm";
 import { AddCategoryForm } from "../../../components/forms/AddCategoryForm";
@@ -32,10 +41,15 @@ import {
 
 export default function HomeDetailsPage() {
   const dispatch = useAppDispatch();
+  const apolloClient = useApolloClient();
   const params = useParams<{ id: string }>();
   const homeId = params.id;
   const { data: session } = useSession();
+  const now = useMemo(() => new Date(), []);
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   const isAddCategoryOpen = useAppSelector((state) => state.ui.isAddCategoryOpen);
   const isAddBillOpen = useAppSelector((state) => state.ui.isAddBillOpen);
@@ -43,11 +57,11 @@ export default function HomeDetailsPage() {
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: homeId },
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
   });
   const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
     variables: { homeId },
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
   });
   const categories = useMemo(() => categoryQuery.data?.getCategoriesByHome ?? [], [categoryQuery.data?.getCategoriesByHome]);
 
@@ -57,21 +71,37 @@ export default function HomeDetailsPage() {
   }, [categories, selectedCategoryId]);
 
   const billsQuery = useQuery<{ getBillsByHome: Bill[] }>(GET_BILLS_BY_HOME, {
-    variables: { homeId },
+    variables: { homeId, month: selectedMonth, year: selectedYear },
     skip: !!effectiveCategoryId,
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
   });
   const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(GET_BILLS_BY_CATEGORY, {
-    variables: { categoryId: effectiveCategoryId },
+    variables: { categoryId: effectiveCategoryId, month: selectedMonth, year: selectedYear },
     skip: !effectiveCategoryId,
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
   });
 
   const manualRefetch = async () => {
+    // Evict all bill cache entries for the current month/year so every
+    // category (including ones not currently visible) gets fresh data.
+    apolloClient.cache.evict({
+      fieldName: "getBillsByHome",
+      args: { homeId, month: selectedMonth, year: selectedYear },
+    });
+    for (const category of categories) {
+      apolloClient.cache.evict({
+        fieldName: "getBillsByCategory",
+        args: { categoryId: category.id, month: selectedMonth, year: selectedYear },
+      });
+    }
+    apolloClient.cache.gc();
+
     await Promise.all([
       homeQuery.refetch(),
       categoryQuery.refetch(),
-      effectiveCategoryId ? billsByCategoryQuery.refetch() : billsQuery.refetch(),
+      effectiveCategoryId
+        ? billsByCategoryQuery.refetch({ categoryId: effectiveCategoryId, month: selectedMonth, year: selectedYear })
+        : billsQuery.refetch({ homeId, month: selectedMonth, year: selectedYear }),
     ]);
   };
 
@@ -85,9 +115,15 @@ export default function HomeDetailsPage() {
 
   const viewerEmail = session?.user?.email?.toLowerCase();
   const isOwner = !!home && !!viewerEmail && home.owners.map((owner) => owner.toLowerCase()).includes(viewerEmail);
+  // Only show the full-page spinner when there is genuinely no data yet (first load).
+  // With cache-and-network, background re-fetches also set loading=true — we don't
+  // want to hide the UI for those since cached data is already on screen.
   const initialLoading = homeQuery.loading && !home;
-  const billsLoading = effectiveCategoryId ? billsByCategoryQuery.loading : billsQuery.loading;
-  const loading = initialLoading || categoryQuery.loading || billsLoading;
+  const billsHaveNoData = effectiveCategoryId
+    ? !billsByCategoryQuery.data && billsByCategoryQuery.networkStatus !== NetworkStatus.ready
+    : !billsQuery.data && billsQuery.networkStatus !== NetworkStatus.ready;
+  const categoriesHaveNoData = !categoryQuery.data;
+  const loading = initialLoading || categoriesHaveNoData || (billsHaveNoData && (effectiveCategoryId ? billsByCategoryQuery.loading : billsQuery.loading));
 
   const errorMessage =
     homeQuery.error?.message ||
@@ -130,6 +166,20 @@ export default function HomeDetailsPage() {
 
           <div className="flex shrink-0 items-center gap-2">
             <RefetchButton refetch={manualRefetch} />
+            <button
+              onClick={() => setShowMonthPicker(true)}
+              className="flex h-9 items-center gap-2 rounded-full border border-[#e8d8c0] bg-white px-4 text-[#78604a] transition hover:border-amber-400 hover:bg-amber-50 active:scale-95 group"
+            >
+              <FiCalendar className="h-4 w-4 shrink-0 text-amber-500 transition-transform group-hover:scale-110" />
+              <span className="text-sm font-bold">
+                {selectedMonth === 0
+                  ? "All Time"
+                  : new Date(selectedYear, selectedMonth - 1).toLocaleString("default", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+              </span>
+            </button>
             {isOwner ? (
               <button
                 type="button"
@@ -259,6 +309,71 @@ export default function HomeDetailsPage() {
         }}
       >
         <AddInviteForm homeId={homeId} onSuccess={() => dispatch(setInviteUserOpen(false))} />
+      </Modal>
+
+      <Modal title="Select Month & Year" open={showMonthPicker} onClose={() => setShowMonthPicker(false)}>
+        <div className="p-2">
+          <div className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 p-2">
+            <button
+              onClick={() => setSelectedYear(selectedYear - 1)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-100 bg-white text-amber-600 shadow-sm transition hover:bg-amber-400 hover:text-white"
+            >
+              <FiChevronLeft className="h-6 w-6" />
+            </button>
+            <span className="text-xl font-black text-[#1a1208]">{selectedYear}</span>
+            <button
+              onClick={() => setSelectedYear(selectedYear + 1)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-100 bg-white text-amber-600 shadow-sm transition hover:bg-amber-400 hover:text-white"
+            >
+              <FiChevronRight className="h-6 w-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 12 }, (_, i) => {
+              const month = i + 1;
+              const isSelected = selectedMonth === month;
+              return (
+                <button
+                  key={month}
+                  onClick={() => {
+                    setSelectedMonth(month);
+                    setShowMonthPicker(false);
+                  }}
+                  className={`rounded-xl py-4 text-sm font-bold transition hover:scale-105 active:scale-95 ${
+                    isSelected
+                      ? "bg-amber-400 text-[#1a1208] shadow-md shadow-amber-200"
+                      : "border border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-300 hover:bg-amber-50"
+                  }`}
+                >
+                  {new Date(0, i).toLocaleString("default", { month: "long" })}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex items-center justify-between gap-4">
+            <button
+              onClick={() => {
+                setSelectedMonth(0);
+                setShowMonthPicker(false);
+              }}
+              className="text-xs font-bold text-[#b8926a] hover:text-amber-700"
+            >
+              Show All Time
+            </button>
+            <button
+              onClick={() => {
+                setSelectedMonth(now.getMonth() + 1);
+                setSelectedYear(now.getFullYear());
+                setShowMonthPicker(false);
+              }}
+              className="text-xs font-bold text-amber-600 underline decoration-amber-200 underline-offset-4 hover:text-amber-700"
+            >
+              Current Month
+            </button>
+          </div>
+        </div>
       </Modal>
     </main>
   );

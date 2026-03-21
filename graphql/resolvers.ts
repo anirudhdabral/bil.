@@ -247,7 +247,7 @@ export const resolvers = {
       }
     },
 
-    getBillsByHome: async (_parent: unknown, args: { homeId: string }, context: GraphQLContext) => {
+    getBillsByHome: async (_parent: unknown, args: { homeId: string; month?: number; year?: number }, context: GraphQLContext) => {
       try {
         const userEmail = requireUserEmail(context);
         assertObjectId(args.homeId, "homeId");
@@ -260,13 +260,21 @@ export const resolvers = {
         }
 
         ensureUserCanAccessHome(home, userEmail);
-        return await Bill.find({ home: args.homeId }).populate("category").sort({ date: -1, createdAt: -1 });
+
+        const filter: Record<string, any> = { home: args.homeId };
+        if (args.year && args.month) {
+          const startDate = new Date(Date.UTC(args.year, args.month - 1, 1));
+          const endDate = new Date(Date.UTC(args.year, args.month, 0, 23, 59, 59, 999));
+          filter.date = { $gte: startDate, $lte: endDate };
+        }
+
+        return await Bill.find(filter).populate("category").sort({ date: -1, createdAt: -1 });
       } catch (error) {
         throwInternalError(error);
       }
     },
 
-    getBillsByCategory: async (_parent: unknown, args: { categoryId: string }, context: GraphQLContext) => {
+    getBillsByCategory: async (_parent: unknown, args: { categoryId: string; month?: number; year?: number }, context: GraphQLContext) => {
       try {
         const userEmail = requireUserEmail(context);
         assertObjectId(args.categoryId, "categoryId");
@@ -284,7 +292,15 @@ export const resolvers = {
         }
 
         ensureUserCanAccessHome(home, userEmail);
-        return await Bill.find({ category: args.categoryId }).populate("category").sort({ date: -1, createdAt: -1 });
+
+        const filter: Record<string, any> = { category: args.categoryId };
+        if (args.year && args.month) {
+          const startDate = new Date(Date.UTC(args.year, args.month - 1, 1));
+          const endDate = new Date(Date.UTC(args.year, args.month, 0, 23, 59, 59, 999));
+          filter.date = { $gte: startDate, $lte: endDate };
+        }
+
+        return await Bill.find(filter).populate("category").sort({ date: -1, createdAt: -1 });
       } catch (error) {
         throwInternalError(error);
       }

@@ -39,8 +39,8 @@ export const typeDefs = `#graphql
     getPendingHomeInvites: [Home!]!
     getHomeById(id: ID!): Home
     getCategoriesByHome(homeId: ID!): [BillCategory!]!
-    getBillsByHome(homeId: ID!): [Bill!]!
-    getBillsByCategory(categoryId: ID!): [Bill!]!
+    getBillsByHome(homeId: ID!, month: Int, year: Int): [Bill!]!
+    getBillsByCategory(categoryId: ID!, month: Int, year: Int): [Bill!]!
   }
 
   type Mutation {

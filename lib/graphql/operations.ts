@@ -49,8 +49,8 @@ export const GET_CATEGORIES_BY_HOME = gql`
 `;
 
 export const GET_BILLS_BY_HOME = gql`
-  query GetBillsByHome($homeId: ID!) {
-    getBillsByHome(homeId: $homeId) {
+  query GetBillsByHome($homeId: ID!, $month: Int, $year: Int) {
+    getBillsByHome(homeId: $homeId, month: $month, year: $year) {
       id
       date
       remarks
@@ -64,8 +64,8 @@ export const GET_BILLS_BY_HOME = gql`
 `;
 
 export const GET_BILLS_BY_CATEGORY = gql`
-  query GetBillsByCategory($categoryId: ID!) {
-    getBillsByCategory(categoryId: $categoryId) {
+  query GetBillsByCategory($categoryId: ID!, $month: Int, $year: Int) {
+    getBillsByCategory(categoryId: $categoryId, month: $month, year: $year) {
       id
       date
       remarks
