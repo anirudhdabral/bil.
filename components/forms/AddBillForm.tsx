@@ -2,6 +2,7 @@
 
 import { useMutation } from "@apollo/client/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { PhotoView } from "react-photo-view";
 import { FiCamera, FiCheck, FiRotateCcw, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 
 import {
@@ -314,6 +315,20 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
     });
   }
 
+  function renderPreview(src: string, alt: string, className: string) {
+    return (
+      <PhotoView src={src}>
+        <button
+          type="button"
+          className="block w-full overflow-hidden rounded-xl border border-[#e8d8c0] bg-[#fef9f2] p-2 text-left"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={alt} className={className} />
+        </button>
+      </PhotoView>
+    );
+  }
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <label className="block">
@@ -403,12 +418,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         ) : (
           <p className="text-xs text-[#b8926a]">Modern phone images are converted to JPG automatically, max 2MB after conversion.</p>
         )}
-        {imagePreviewUrl ? (
-          <div className="overflow-hidden rounded-xl border border-[#e8d8c0] bg-[#fef9f2] p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreviewUrl} alt="Selected preview" className="max-h-40 w-full rounded-lg object-contain" />
-          </div>
-        ) : null}
+        {imagePreviewUrl ? renderPreview(imagePreviewUrl, "Selected preview", "max-h-40 w-full rounded-lg object-contain") : null}
         {cameraError ? <p className="text-xs text-red-600">{cameraError}</p> : null}
       </div>
 
@@ -448,12 +458,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
               </>
             ) : (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={capturedPreviewUrl}
-                  alt="Captured preview"
-                  className="h-56 w-full rounded-xl bg-white object-contain"
-                />
+                {renderPreview(capturedPreviewUrl, "Captured preview", "h-56 w-full rounded-xl bg-white object-contain")}
                 <p className="text-xs font-medium text-[#78604a]">
                   Use this photo for the bill?
                 </p>

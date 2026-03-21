@@ -2,18 +2,9 @@
 
 import { useMutation } from "@apollo/client/react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import {
-  FiDownload,
-  FiEdit2,
-  FiEye,
-  FiMinus,
-  FiPlus,
-  FiRefreshCcw,
-  FiTrash2,
-  FiX,
-} from "react-icons/fi";
+import { useState } from "react";
+import { PhotoView } from "react-photo-view";
+import { FiEdit2, FiEye, FiTrash2 } from "react-icons/fi";
 
 import { DELETE_BILL } from "../../lib/graphql/operations";
 import type { Bill, BillCategory } from "../../lib/graphql/types";
@@ -76,53 +67,11 @@ type BillCardProps = {
 
 export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
   const dispatch = useAppDispatch();
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
   const imageStorageSize = formatStorageSize(getStoredImageBytes(bill.imageUrl));
 
   const [deleteBill, { loading: deleting }] = useMutation(DELETE_BILL);
-
-  useEffect(() => {
-    if (!isPreviewOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsPreviewOpen(false);
-        setZoom(1);
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isPreviewOpen]);
-
-  function openPreview() {
-    setIsPreviewOpen(true);
-  }
-
-  function closePreview() {
-    setIsPreviewOpen(false);
-    setZoom(1);
-  }
-
-  function zoomIn() {
-    setZoom((current) => Math.min(current + 0.25, 3));
-  }
-
-  function zoomOut() {
-    setZoom((current) => Math.max(current - 0.25, 1));
-  }
 
   async function handleDelete() {
     dispatch(setGlobalError(null));
@@ -139,94 +88,12 @@ export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
     }
   }
 
-  const previewOverlay =
-    typeof document !== "undefined" && isPreviewOpen && bill.imageUrl
-      ? createPortal(
-          <div className="fixed inset-0 z-120 bg-black/95">
-            <button
-              type="button"
-              aria-label="Close preview"
-              onClick={closePreview}
-              className="absolute inset-0 h-full w-full"
-            />
-
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-130 flex items-start justify-between gap-3 p-3 sm:p-5">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/55 px-2 py-2 text-white backdrop-blur-md">
-                <button
-                  type="button"
-                  onClick={zoomOut}
-                  aria-label="Zoom out"
-                  className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
-                >
-                  <FiMinus className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={zoomIn}
-                  aria-label="Zoom in"
-                  className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
-                >
-                  <FiPlus className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(1)}
-                  aria-label="Reset zoom"
-                  className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
-                >
-                  <FiRefreshCcw className="h-4 w-4" />
-                </button>
-                <span className="min-w-14 text-center text-sm font-medium text-white/85">{Math.round(zoom * 100)}%</span>
-              </div>
-
-              <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/55 px-2 py-2 text-white backdrop-blur-md">
-                <a
-                  href={bill.imageUrl}
-                  download
-                  aria-label="Download image"
-                  className="inline-flex items-center justify-center rounded-xl bg-amber-400 p-2.5 text-[#1a1208] transition hover:bg-amber-500"
-                >
-                  <FiDownload className="h-4 w-4" />
-                </a>
-                <button
-                  type="button"
-                  onClick={closePreview}
-                  aria-label="Close preview"
-                  className="inline-flex items-center justify-center rounded-xl bg-white/10 p-2.5 text-white transition hover:bg-white/20"
-                >
-                  <FiX className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="absolute inset-0 overflow-auto">
-              <div className="relative flex min-h-screen min-w-full items-center justify-center p-6 sm:p-10">
-                <div
-                  className="relative h-[calc(100vh-3rem)] w-[calc(100vw-3rem)] sm:h-[calc(100vh-5rem)] sm:w-[calc(100vw-5rem)]"
-                  style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
-                >
-                  <Image
-                    src={bill.imageUrl}
-                    alt={`Bill preview for ${bill.category.name}`}
-                    fill
-                    className="object-contain"
-                    sizes="100vw"
-                    priority
-                  />
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
-
   return (
     <>
       <article className="group overflow-hidden rounded-2xl border border-[#e8d8c0] bg-white/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-md hover:shadow-amber-100">
         {bill.imageUrl ? (
-          <div className="relative h-40 w-full overflow-hidden">
-            <button type="button" onClick={openPreview} className="block h-full w-full">
+          <PhotoView src={bill.imageUrl}>
+            <button type="button" className="relative block h-40 w-full overflow-hidden text-left">
               <Image
                 src={bill.imageUrl}
                 alt={`Bill for ${bill.category.name}`}
@@ -235,16 +102,12 @@ export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
                 sizes="(max-width: 768px) 100vw, 33vw"
               />
               <span className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <span className="absolute bottom-2.5 right-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75">
+                <FiEye className="h-3 w-3" />
+                Preview
+              </span>
             </button>
-            <button
-              type="button"
-              onClick={openPreview}
-              className="absolute bottom-2.5 right-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75"
-            >
-              <FiEye className="h-3 w-3" />
-              Preview
-            </button>
-          </div>
+          </PhotoView>
         ) : (
           <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 bg-[#fef9f2]">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fef0d0]">
@@ -291,8 +154,6 @@ export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
           </p>
         </div>
       </article>
-
-      {previewOverlay}
 
       <Modal title="Edit Bill" open={isEditOpen} onClose={() => setIsEditOpen(false)}>
         <EditBillForm
