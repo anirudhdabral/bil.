@@ -147,7 +147,7 @@ export default function HomePage() {
                 className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition-colors hover:bg-amber-500 active:scale-95"
               >
                 <FiPlus className="h-4 w-4" />
-                Add Home
+                Add
               </motion.button>
             </div>
           </div>

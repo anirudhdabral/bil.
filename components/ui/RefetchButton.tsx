@@ -34,7 +34,7 @@ export function RefetchButton({ refetch, className = "", size = 16 }: RefetchBut
       onClick={handleRefetch}
       disabled={loading}
       className={`inline-flex items-center justify-center rounded-lg p-2 text-[#78604a] transition-colors hover:text-amber-700 disabled:opacity-50 ${className}`}
-      title="Refetch data"
+      title="Refetch"
     >
       <motion.div
         animate={loading ? { rotate: 360 } : { rotate: 0 }}

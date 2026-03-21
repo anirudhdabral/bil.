@@ -178,10 +178,14 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-4">
+        <div className="mb-6 grid gap-4 grid-cols-2 sm:grid-cols-4">
           <div className="rounded-2xl border border-[#e8d8c0] bg-white/90 px-5 py-4 shadow-sm shadow-amber-900/5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#b8926a]">Total Users</p>
             <p className="mt-2 text-2xl font-black text-[#1a1208]">{users.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[#eadffc] bg-[#faf6ff] px-5 py-4 shadow-sm shadow-amber-900/5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#b8926a]">Admins</p>
+            <p className="mt-2 text-2xl font-black text-[#1a1208]">{adminUsers.length}</p>
           </div>
           <div className="rounded-2xl border border-[#f1d19d] bg-[#fff7e8] px-5 py-4 shadow-sm shadow-amber-900/5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#b8926a]">Pending</p>
@@ -191,10 +195,7 @@ export default function AdminPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-[#b8926a]">Approved</p>
             <p className="mt-2 text-2xl font-black text-[#1a1208]">{approvedUsers.length}</p>
           </div>
-          <div className="rounded-2xl border border-[#eadffc] bg-[#faf6ff] px-5 py-4 shadow-sm shadow-amber-900/5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#b8926a]">Admins</p>
-            <p className="mt-2 text-2xl font-black text-[#1a1208]">{adminUsers.length}</p>
-          </div>
+          
         </div>
 
         <motion.section
@@ -241,13 +242,13 @@ export default function AdminPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-bold text-[#1a1208]">{user.name?.trim() || "Unnamed user"}</p>
-                            <span
+                            {!isSuperAdmin && <span
                               className={user.approved
                                 ? "rounded-full bg-[#e4f4dc] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#3f6f22]"
                                 : "rounded-full bg-[#fff1d6] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#b36b00]"}
                             >
                               {user.approved ? "Approved" : "Pending"}
-                            </span>
+                            </span>}
                             <span
                               className={isSuperAdmin
                                 ? "rounded-full bg-[#eadffc] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#6a3db8]"
@@ -262,11 +263,7 @@ export default function AdminPage() {
                           </p>
                         </div>
 
-                        {isSuperAdmin ? (
-                          <div className="inline-flex items-center justify-center rounded-2xl border border-[#d7c8f3] bg-[#f6f0ff] px-4 py-2.5 text-sm font-semibold text-[#6a3db8]">
-                            Protected Account
-                          </div>
-                        ) : user.approved ? (
+                        {isSuperAdmin ? null : user.approved ? (
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}

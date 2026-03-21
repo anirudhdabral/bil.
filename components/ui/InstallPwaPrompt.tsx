@@ -19,24 +19,45 @@ function isStandaloneMode() {
     return false;
   }
 
-  return window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    ("standalone" in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true)
+  );
+}
+
+function readDismissedState() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(DISMISS_KEY) === "true";
 }
 
 export function InstallPwaPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(readDismissedState);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    if (isStandaloneMode() || window.localStorage.getItem(DISMISS_KEY) === "true") {
+    if (isStandaloneMode() || isDismissed) {
       return;
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+
+      if (window.localStorage.getItem(DISMISS_KEY) === "true") {
+        setIsDismissed(true);
+        setDeferredPrompt(null);
+        setIsVisible(false);
+        return;
+      }
+
       setDeferredPrompt(event as BeforeInstallPromptEvent);
       setIsVisible(true);
     };
@@ -44,6 +65,7 @@ export function InstallPwaPrompt() {
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setIsVisible(false);
+      setIsDismissed(true);
       window.localStorage.removeItem(DISMISS_KEY);
     };
 
@@ -54,7 +76,7 @@ export function InstallPwaPrompt() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, []);
+  }, [isDismissed]);
 
   async function handleInstall() {
     if (!deferredPrompt) {
@@ -70,16 +92,20 @@ export function InstallPwaPrompt() {
       return;
     }
 
+    setDeferredPrompt(null);
     setIsVisible(false);
+    setIsDismissed(true);
     window.localStorage.setItem(DISMISS_KEY, "true");
   }
 
   function handleDismiss() {
+    setDeferredPrompt(null);
     setIsVisible(false);
+    setIsDismissed(true);
     window.localStorage.setItem(DISMISS_KEY, "true");
   }
 
-  if (!isVisible || !deferredPrompt) {
+  if (isDismissed || !isVisible || !deferredPrompt) {
     return null;
   }
 
