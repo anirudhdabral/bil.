@@ -18,6 +18,10 @@ const billCategorySchema = new Schema(
   }
 );
 
+// Index for getCategoriesByHome query (find by home, sort by createdAt)
+billCategorySchema.index({ home: 1, createdAt: -1 });
+
+
 export type BillCategoryDocument = InferSchemaType<typeof billCategorySchema>;
 
 const BillCategory = models.BillCategory || model("BillCategory", billCategorySchema);

@@ -49,11 +49,13 @@ export default function HomeDetailsPage() {
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: homeId },
+    fetchPolicy: "cache-first",
   });
   const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(
     GET_CATEGORIES_BY_HOME,
     {
       variables: { homeId },
+      fetchPolicy: "cache-first",
     },
   );
   const categories = useMemo(
@@ -71,12 +73,14 @@ export default function HomeDetailsPage() {
   const billsQuery = useQuery<{ getBillsByHome: Bill[] }>(GET_BILLS_BY_HOME, {
     variables: { homeId },
     skip: !!effectiveCategoryId,
+    fetchPolicy: "cache-first",
   });
   const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(
     GET_BILLS_BY_CATEGORY,
     {
       variables: { categoryId: effectiveCategoryId },
       skip: !effectiveCategoryId,
+      fetchPolicy: "cache-first",
     },
   );
 

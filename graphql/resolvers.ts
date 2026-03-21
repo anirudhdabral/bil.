@@ -217,7 +217,10 @@ export const resolvers = {
         }
 
         ensureUserCanAccessHome(home, userEmail);
-        return await Bill.find({ home: args.homeId }).sort({ date: -1, createdAt: -1 });
+        // populate category in a single $lookup instead of N+1 field resolvers
+        return await Bill.find({ home: args.homeId })
+          .populate("category")
+          .sort({ date: -1, createdAt: -1 });
       } catch (error) {
         throwInternalError(error);
       }
@@ -245,7 +248,10 @@ export const resolvers = {
         }
 
         ensureUserCanAccessHome(home, userEmail);
-        return await Bill.find({ category: args.categoryId }).sort({ date: -1, createdAt: -1 });
+        // populate category in a single $lookup instead of N+1 field resolvers
+        return await Bill.find({ category: args.categoryId })
+          .populate("category")
+          .sort({ date: -1, createdAt: -1 });
       } catch (error) {
         throwInternalError(error);
       }
@@ -573,20 +579,16 @@ export const resolvers = {
   },
 
   Bill: {
-    category: async (parent: { category: string }) => {
-      try {
-        return await BillCategory.findById(parent.category);
-      } catch (error) {
-        throwInternalError(error);
+    category: (parent: { category: unknown }) => {
+      // If already populated by the query resolver, return as-is.
+      // This is the fast path — no extra DB call needed.
+      if (parent.category && typeof parent.category === "object") {
+        return parent.category;
       }
-    },
-
-    home: async (parent: { home: string }) => {
-      try {
-        return await Home.findById(parent.home);
-      } catch (error) {
-        throwInternalError(error);
-      }
+      // Fallback: resolve from DB if category is still a bare ObjectId.
+      return BillCategory.findById(parent.category as string).catch((error) =>
+        throwInternalError(error)
+      );
     },
 
     date: (parent: { date: Date }) => parent.date.toISOString(),

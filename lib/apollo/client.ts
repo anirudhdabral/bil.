@@ -6,6 +6,7 @@ import {
   InMemoryCache,
   Observable,
   type FetchResult,
+  type TypePolicies,
 } from "@apollo/client";
 import { print } from "graphql";
 
@@ -130,9 +131,23 @@ function createUploadLink(): ApolloLink {
   });
 }
 
+const typePolicies: TypePolicies = {
+  Home: { keyFields: ["id"] },
+  BillCategory: { keyFields: ["id"] },
+  Bill: { keyFields: ["id"] },
+  Query: {
+    fields: {
+      // Merge paginated / filtered bill lists into the cache by their args key
+      getBillsByHome: { keyArgs: ["homeId"] },
+      getBillsByCategory: { keyArgs: ["categoryId"] },
+      getCategoriesByHome: { keyArgs: ["homeId"] },
+    },
+  },
+};
+
 export function createApolloClient() {
   return new ApolloClient({
-    cache: new InMemoryCache(),
+    cache: new InMemoryCache({ typePolicies }),
     link: createUploadLink(),
   });
 }

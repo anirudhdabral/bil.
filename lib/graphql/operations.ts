@@ -44,9 +44,6 @@ export const GET_CATEGORIES_BY_HOME = gql`
     getCategoriesByHome(homeId: $homeId) {
       id
       name
-      home {
-        id
-      }
     }
   }
 `;
@@ -62,9 +59,6 @@ export const GET_BILLS_BY_HOME = gql`
         id
         name
       }
-      home {
-        id
-      }
     }
   }
 `;
@@ -79,9 +73,6 @@ export const GET_BILLS_BY_CATEGORY = gql`
       category {
         id
         name
-      }
-      home {
-        id
       }
     }
   }
@@ -146,9 +137,6 @@ export const CREATE_CATEGORY = gql`
     createCategory(name: $name, homeId: $homeId) {
       id
       name
-      home {
-        id
-      }
     }
   }
 `;
@@ -175,9 +163,6 @@ export const CREATE_BILL = gql`
       category {
         id
         name
-      }
-      home {
-        id
       }
     }
   }

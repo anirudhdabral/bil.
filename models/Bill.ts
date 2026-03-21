@@ -33,6 +33,11 @@ const billSchema = new Schema(
   }
 );
 
+// Compound indexes for the two hot query paths
+billSchema.index({ home: 1, date: -1, createdAt: -1 });
+billSchema.index({ category: 1, date: -1, createdAt: -1 });
+
+
 export type BillDocument = InferSchemaType<typeof billSchema>;
 
 const Bill = models.Bill || model("Bill", billSchema);

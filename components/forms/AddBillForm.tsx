@@ -7,7 +7,6 @@ import { FiCamera, FiCheck, FiRotateCcw, FiTrash2, FiUploadCloud, FiX } from "re
 import {
   CREATE_BILL,
   GET_BILLS_BY_HOME,
-  GET_CATEGORIES_BY_HOME,
 } from "../../lib/graphql/operations";
 import type { BillCategory } from "../../lib/graphql/types";
 import { useAppDispatch } from "../../lib/redux/hooks";
@@ -116,10 +115,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
   }, [capturedPreviewUrl]);
 
   const [createBill, { loading, error }] = useMutation(CREATE_BILL, {
-    refetchQueries: [
-      { query: GET_BILLS_BY_HOME, variables: { homeId } },
-      { query: GET_CATEGORIES_BY_HOME, variables: { homeId } },
-    ],
+    refetchQueries: [{ query: GET_BILLS_BY_HOME, variables: { homeId } }],
     awaitRefetchQueries: true,
   });
 

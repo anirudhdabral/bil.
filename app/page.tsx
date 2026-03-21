@@ -24,10 +24,10 @@ export default function HomePage() {
   const isAddHomeOpen = useAppSelector((state) => state.ui.isAddHomeOpen);
 
   const { data, loading, error } = useQuery<{ getHomes: Home[] }>(GET_HOMES, {
-    fetchPolicy: "cache-and-network",
+    fetchPolicy: "cache-first",
   });
   const pendingInvitesQuery = useQuery<{ getPendingHomeInvites: Home[] }>(GET_PENDING_HOME_INVITES, {
-    fetchPolicy: "cache-and-network",
+    fetchPolicy: "cache-first",
   });
   const homes = data?.getHomes ?? [];
   const pendingInvites = pendingInvitesQuery.data?.getPendingHomeInvites ?? [];
