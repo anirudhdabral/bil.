@@ -244,49 +244,18 @@ export function AddBillForm({
     try {
       let stream: MediaStream;
       try {
-        // Initial permission grant & default stream
+        // Request the rear-facing camera with a high ideal resolution.
+        // Browsers match constraints to the best available camera — the main
+        // sensor is higher resolution than the ultrawide, so it will be
+        // preferred when a large ideal width is specified.
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 4096 },
+            height: { ideal: 2160 },
+          },
           audio: false,
         });
-
-        // Enumerate devices to pick the main camera, avoiding ultrawide
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter((d) => d.kind === "videoinput");
-
-        const backCameras = videoInputs.filter(
-          (d) =>
-            d.label.toLowerCase().includes("back") ||
-            d.label.toLowerCase().includes("rear") ||
-            d.label.toLowerCase().includes("environment") ||
-            d.label.toLowerCase().includes("facing back")
-        );
-
-        if (backCameras.length > 1) {
-          // Identify the main camera by avoiding strings common in auxiliary lenses
-          const mainCamera =
-            backCameras.find(
-              (d) =>
-                !d.label.toLowerCase().includes("ultra") &&
-                !d.label.toLowerCase().includes("tele") &&
-                !d.label.toLowerCase().includes("macro") &&
-                !d.label.toLowerCase().includes("depth")
-            ) || backCameras[0];
-
-          const currentTrack = stream.getVideoTracks()[0];
-          if (
-            currentTrack &&
-            currentTrack.label !== mainCamera.label &&
-            mainCamera.deviceId
-          ) {
-            // Stop the initial stream and switch to the exact main camera
-            stream.getTracks().forEach((track) => track.stop());
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: { deviceId: { exact: mainCamera.deviceId } },
-              audio: false,
-            });
-          }
-        }
       } catch (err) {
         // Fallback for desktops/laptops which may reject facingMode entirely
         stream = await navigator.mediaDevices.getUserMedia({
