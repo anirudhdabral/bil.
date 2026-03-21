@@ -122,7 +122,7 @@ export function AddBillForm({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
-      if (capturedPreviewUrl) {
+      if (capturedPreviewUrl && capturedPreviewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(capturedPreviewUrl);
       }
     };
@@ -230,7 +230,7 @@ export function AddBillForm({
     setCameraError(null);
     setCapturedFile(null);
     setCapturedPreviewUrl((current) => {
-      if (current) {
+      if (current && current.startsWith("blob:")) {
         URL.revokeObjectURL(current);
       }
       return null;
@@ -242,10 +242,20 @@ export function AddBillForm({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+      } catch (err) {
+        // Fallback for desktops/laptops which may reject facingMode entirely
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+      
       streamRef.current = stream;
       setCameraOpen(true);
       requestAnimationFrame(() => {
@@ -266,7 +276,7 @@ export function AddBillForm({
     setCameraOpen(false);
     setCapturedFile(null);
     setCapturedPreviewUrl((current) => {
-      if (current) {
+      if (current && current.startsWith("blob:")) {
         URL.revokeObjectURL(current);
       }
       return null;
@@ -308,7 +318,7 @@ export function AddBillForm({
         setCapturedFile(file);
         const url = URL.createObjectURL(file);
         setCapturedPreviewUrl((current) => {
-          if (current) {
+          if (current && current.startsWith("blob:")) {
             URL.revokeObjectURL(current);
           }
           return url;
@@ -329,7 +339,7 @@ export function AddBillForm({
     setCameraOpen(false);
     setCapturedFile(null);
     setCapturedPreviewUrl((current) => {
-      if (current) {
+      if (current && current.startsWith("blob:")) {
         URL.revokeObjectURL(current);
       }
       return null;
@@ -465,83 +475,77 @@ export function AddBillForm({
       </div>
 
       {cameraOpen ? (
-        <div className="space-y-3 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60">
-          <div className="border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
-              Camera Capture
-            </p>
+        <div className="fixed inset-0 z-9999 flex flex-col bg-black">
+          {/* Top Bar */}
+          <div className="relative z-10 flex w-full items-center justify-between bg-linear-to-b from-black/60 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
+            <button
+              type="button"
+              onClick={cancelCamera}
+              className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-white/20"
+            >
+              <FiX className="h-6 w-6" />
+            </button>
+            <span className="text-sm font-medium tracking-widest uppercase text-white/90 drop-shadow-md">
+              {capturedPreviewUrl ? "Preview" : "Capture"}
+            </span>
+            <div className="w-10" /> {/* Spacer to center the text */}
           </div>
-          <div className="space-y-3 px-4 pb-4">
+
+          <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-black pb-[env(safe-area-inset-bottom)]">
             {!capturedPreviewUrl ? (
               <>
                 <video
                   ref={videoRef}
-                  className="h-56 w-full rounded-xl bg-black object-contain"
+                  className="h-full w-full object-contain"
                   playsInline
                   muted
                   autoPlay
                 />
-                <div className="flex flex-wrap gap-2">
+                
+                {/* Capture button overlay */}
+                <div className="absolute bottom-8 left-0 right-0 flex justify-center pb-[env(safe-area-inset-bottom)]">
                   <button
                     type="button"
                     onClick={capturePhoto}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-sm font-bold text-[#1a1208] transition hover:bg-amber-500"
+                    className="group relative flex h-18 w-18 items-center justify-center rounded-full border-4 border-white bg-transparent transition active:scale-95"
                   >
-                    <FiCamera className="h-4 w-4" />
-                    Capture
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelCamera}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e8d8c0] bg-white px-3 py-2 text-sm font-semibold text-[#44382a] transition hover:bg-[#fef9f2]"
-                  >
-                    <FiX className="h-4 w-4" />
-                    Cancel
+                    <div className="absolute inset-1 rounded-full bg-white transition group-hover:bg-gray-200 group-active:bg-gray-300"></div>
                   </button>
                 </div>
               </>
             ) : (
               <>
-                {renderPreview(
-                  capturedPreviewUrl,
-                  "Captured preview",
-                  "h-56 w-full rounded-xl bg-white object-contain",
-                )}
-                <p className="text-xs font-medium text-[#78604a]">
-                  Use this photo for the bill?
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={confirmCapturedPhoto}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-sm font-bold text-[#1a1208] transition hover:bg-amber-500"
-                  >
-                    <FiCheck className="h-4 w-4" />
-                    Confirm
-                  </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={capturedPreviewUrl}
+                  alt="Captured preview"
+                  className="h-full w-full object-contain"
+                />
+                {/* Review actions overlay */}
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-linear-to-t from-black/80 via-black/40 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
                   <button
                     type="button"
                     onClick={() => {
                       setCapturedFile(null);
                       setCapturedPreviewUrl((current) => {
-                        if (current) {
+                        if (current && current.startsWith("blob:")) {
                           URL.revokeObjectURL(current);
                         }
                         return null;
                       });
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e8d8c0] bg-white px-3 py-2 text-sm font-semibold text-[#44382a] transition hover:bg-[#fef9f2]"
+                    className="flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
                   >
-                    <FiRotateCcw className="h-4 w-4" />
+                    <FiRotateCcw className="h-5 w-5" />
                     Retake
                   </button>
                   <button
                     type="button"
-                    onClick={cancelCamera}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e8d8c0] bg-white px-3 py-2 text-sm font-semibold text-[#44382a] transition hover:bg-[#fef9f2]"
+                    onClick={confirmCapturedPhoto}
+                    className="flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-bold text-[#1a1208] shadow-lg shadow-amber-400/20 transition hover:bg-amber-500 active:scale-95"
                   >
-                    <FiX className="h-4 w-4" />
-                    Cancel
+                    <FiCheck className="h-5 w-5" />
+                    Use Photo
                   </button>
                 </div>
               </>
