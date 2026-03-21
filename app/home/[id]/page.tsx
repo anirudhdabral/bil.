@@ -1,17 +1,11 @@
 "use client";
 
 import { useQuery } from "@apollo/client/react";
-import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  FiArrowLeft,
-  FiFileText,
-  FiFolderPlus,
-  FiUserPlus,
-} from "react-icons/fi";
+import { FiArrowLeft, FiFileText, FiFolderPlus, FiUserPlus } from "react-icons/fi";
 
 import { AddBillForm } from "../../../components/forms/AddBillForm";
 import { AddCategoryForm } from "../../../components/forms/AddCategoryForm";
@@ -51,23 +45,15 @@ export default function HomeDetailsPage() {
     variables: { id: homeId },
     fetchPolicy: "cache-first",
   });
-  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(
-    GET_CATEGORIES_BY_HOME,
-    {
-      variables: { homeId },
-      fetchPolicy: "cache-first",
-    },
-  );
-  const categories = useMemo(
-    () => categoryQuery.data?.getCategoriesByHome ?? [],
-    [categoryQuery.data?.getCategoriesByHome],
-  );
+  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
+    variables: { homeId },
+    fetchPolicy: "cache-first",
+  });
+  const categories = useMemo(() => categoryQuery.data?.getCategoriesByHome ?? [], [categoryQuery.data?.getCategoriesByHome]);
 
   const effectiveCategoryId = useMemo(() => {
     if (!selectedCategoryId) return "";
-    return categories.some((c) => c.id === selectedCategoryId)
-      ? selectedCategoryId
-      : "";
+    return categories.some((category) => category.id === selectedCategoryId) ? selectedCategoryId : "";
   }, [categories, selectedCategoryId]);
 
   const billsQuery = useQuery<{ getBillsByHome: Bill[] }>(GET_BILLS_BY_HOME, {
@@ -75,14 +61,11 @@ export default function HomeDetailsPage() {
     skip: !!effectiveCategoryId,
     fetchPolicy: "cache-first",
   });
-  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(
-    GET_BILLS_BY_CATEGORY,
-    {
-      variables: { categoryId: effectiveCategoryId },
-      skip: !effectiveCategoryId,
-      fetchPolicy: "cache-first",
-    },
-  );
+  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(GET_BILLS_BY_CATEGORY, {
+    variables: { categoryId: effectiveCategoryId },
+    skip: !effectiveCategoryId,
+    fetchPolicy: "cache-first",
+  });
 
   const manualRefetch = async () => {
     await Promise.all([
@@ -92,31 +75,19 @@ export default function HomeDetailsPage() {
     ]);
   };
 
-  const loading =
-    homeQuery.loading ||
-    categoryQuery.loading ||
-    billsQuery.loading ||
-    billsByCategoryQuery.loading;
   const home = homeQuery.data?.getHomeById ?? null;
-
   const bills = useMemo(() => {
     const raw = effectiveCategoryId
       ? (billsByCategoryQuery.data?.getBillsByCategory ?? [])
       : (billsQuery.data?.getBillsByHome ?? []);
-    return [...raw].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-  }, [
-    effectiveCategoryId,
-    billsByCategoryQuery.data?.getBillsByCategory,
-    billsQuery.data?.getBillsByHome,
-  ]);
+    return [...raw].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [effectiveCategoryId, billsByCategoryQuery.data?.getBillsByCategory, billsQuery.data?.getBillsByHome]);
 
   const viewerEmail = session?.user?.email?.toLowerCase();
-  const isOwner =
-    !!home &&
-    !!viewerEmail &&
-    home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
+  const isOwner = !!home && !!viewerEmail && home.owners.map((owner) => owner.toLowerCase()).includes(viewerEmail);
+  const initialLoading = homeQuery.loading && !home;
+  const billsLoading = effectiveCategoryId ? billsByCategoryQuery.loading : billsQuery.loading;
+  const loading = initialLoading || categoryQuery.loading || billsLoading;
 
   const errorMessage =
     homeQuery.error?.message ||
@@ -135,48 +106,32 @@ export default function HomeDetailsPage() {
 
   return (
     <main className="min-h-screen">
-      {/* ── Top bar ── */}
-      <motion.div 
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="sticky top-14 z-20 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md"
-      >
-        <div className="mx-auto py-8 flex h-12 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          {/* Left: back + title */}
+      <div className="sticky top-14 z-20 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md">
+        <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-3 px-4 py-8 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-              <Link
-                href="/"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
-              >
-                <FiArrowLeft className="h-4 w-4" />
-              </Link>
-            </motion.div>
+            <Link
+              href="/"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-[#78604a] transition hover:border-amber-300 hover:bg-amber-50"
+            >
+              <FiArrowLeft className="h-4 w-4" />
+            </Link>
             {home ? (
-              <motion.div 
-                initial={{ x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                className="min-w-0"
-              >
-                <p className="truncate text-lg font-black text-[#1a1208]">
-                  {home.houseNo}
-                </p>
-                <p className="truncate text-xs text-[#b8926a]">
-                  {home.address}
-                </p>
-              </motion.div>
+              <div className="min-w-0">
+                <p className="truncate text-lg font-black text-[#1a1208]">{home.houseNo}</p>
+                <p className="truncate text-xs text-[#b8926a]">{home.address}</p>
+              </div>
             ) : (
-              loading && <LoadingSpinner className="h-5 w-5 text-amber-500" />
+              <div className="flex items-center gap-2 text-sm text-[#78604a]">
+                <LoadingSpinner className="h-5 w-5 text-amber-500" />
+                <span>Loading home...</span>
+              </div>
             )}
           </div>
 
-          {/* Right: action buttons */}
           <div className="flex shrink-0 items-center gap-2">
             <RefetchButton refetch={manualRefetch} />
-            {isOwner && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+            {isOwner ? (
+              <button
                 type="button"
                 id="invite-user-btn"
                 onClick={() => dispatch(setInviteUserOpen(true))}
@@ -184,11 +139,9 @@ export default function HomeDetailsPage() {
                 title="Invite User"
               >
                 <FiUserPlus className="h-4 w-4" />
-              </motion.button>
-            )}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              </button>
+            ) : null}
+            <button
               type="button"
               id="add-bill-btn"
               onClick={() => dispatch(setAddBillOpen(true))}
@@ -196,96 +149,72 @@ export default function HomeDetailsPage() {
             >
               <FiFileText className="h-3.5 w-3.5" />
               Add Bill
-            </motion.button>
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6">
-        {/* ── Categories horizontal scroll ── */}
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <div
-            className="flex items-center overflow-x-auto gap-2 pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
-            style={{ msOverflowStyle: "none" }}
-          >
-            {/* "All" pill */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => setSelectedCategoryId("")}
-              className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                !effectiveCategoryId
-                  ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
-                  : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
-              }`}
+      {loading ? (
+        <div className="flex min-h-[calc(100vh-8.5rem)] items-center justify-center px-4">
+          <div className="flex flex-col items-center gap-3 text-center text-[#78604a]">
+            <LoadingSpinner className="h-10 w-10 text-amber-500" />
+            <p className="text-sm font-medium">Loading bills...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6">
+          <div className="mb-6">
+            <div
+              className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
+              style={{ msOverflowStyle: "none" }}
             >
-              All
-            </motion.button>
-
-            {/* Category pills */}
-            {categories.map((cat) => (
-              <motion.button
-                key={cat.id}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 type="button"
-                onClick={() => setSelectedCategoryId(cat.id)}
+                onClick={() => setSelectedCategoryId("")}
                 className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                  effectiveCategoryId === cat.id
+                  !effectiveCategoryId
                     ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
                     : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
                 }`}
               >
-                {cat.name}
-              </motion.button>
-            ))}
+                All
+              </button>
 
-            {/* Divider + Add category button at far right */}
-            {categories.length > 0 && (
-              <div className="shrink-0 mx-1 h-5 w-px bg-[#e8d8c0]" />
-            )}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              id="add-category-btn"
-              onClick={() => dispatch(setAddCategoryOpen(true))}
-              className="shrink-0 flex items-center gap-1.5 rounded-full border border-dashed border-[#e8d8c0] bg-[#fef9f2] px-3 py-1.5 text-sm font-semibold text-[#b8926a] transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
-            >
-              <FiFolderPlus className="h-4 w-4" />
-              Add
-            </motion.button>
+              {categories.map((category) => {
+                const isSelected = effectiveCategoryId === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setSelectedCategoryId(category.id)}
+                    className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
+                      isSelected
+                        ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
+                        : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+
+              {categories.length > 0 ? <div className="mx-1 h-5 w-px shrink-0 bg-[#e8d8c0]" /> : null}
+              <button
+                type="button"
+                id="add-category-btn"
+                onClick={() => dispatch(setAddCategoryOpen(true))}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#e8d8c0] bg-[#fef9f2] px-3 py-1.5 text-sm font-semibold text-[#b8926a] transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+              >
+                <FiFolderPlus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
           </div>
-        </motion.div>
 
-        {/* ── Loading ── */}
-        {loading && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-5 flex items-center gap-2.5 rounded-2xl border border-[#e8d8c0] bg-white/70 px-4 py-3 text-[#78604a]"
-          >
-            <LoadingSpinner className="h-4 w-4" />
-            <span className="text-sm font-medium">Loading...</span>
-          </motion.div>
-        )}
+          <BillList bills={bills} categories={categories} onBillsChanged={manualRefetch} />
+        </div>
+      )}
 
-        {/* ── Bills ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          <BillList bills={bills} />
-        </motion.div>
-      </div>
-
-      {/* ── Modals ── */}
       <Modal
         title="Add Category"
         open={isAddCategoryOpen}
@@ -296,7 +225,10 @@ export default function HomeDetailsPage() {
       >
         <AddCategoryForm
           homeId={homeId}
-          onSuccess={() => dispatch(setAddCategoryOpen(false))}
+          onSuccess={async () => {
+            dispatch(setAddCategoryOpen(false));
+            await manualRefetch();
+          }}
         />
       </Modal>
 
@@ -311,7 +243,10 @@ export default function HomeDetailsPage() {
         <AddBillForm
           homeId={homeId}
           categories={categories}
-          onSuccess={() => dispatch(setAddBillOpen(false))}
+          onSuccess={async () => {
+            dispatch(setAddBillOpen(false));
+            await manualRefetch();
+          }}
         />
       </Modal>
 
@@ -323,10 +258,7 @@ export default function HomeDetailsPage() {
           dispatch(setGlobalError(null));
         }}
       >
-        <AddInviteForm
-          homeId={homeId}
-          onSuccess={() => dispatch(setInviteUserOpen(false))}
-        />
+        <AddInviteForm homeId={homeId} onSuccess={() => dispatch(setInviteUserOpen(false))} />
       </Modal>
     </main>
   );

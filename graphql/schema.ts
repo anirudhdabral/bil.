@@ -46,6 +46,8 @@ export const typeDefs = `#graphql
   type Mutation {
     createHome(houseNo: String!, address: String!): Home!
     createCategory(name: String!, homeId: ID!): BillCategory!
+    updateCategory(categoryId: ID!, name: String!): BillCategory!
+    deleteCategory(categoryId: ID!): Boolean!
     inviteUserToHome(homeId: ID!, email: String!): Home!
     promoteHomeMemberToAdmin(homeId: ID!, email: String!): Home!
     acceptHomeInvite(homeId: ID!): Home!
@@ -57,5 +59,12 @@ export const typeDefs = `#graphql
       homeId: ID!
       image: Upload
     ): Bill!
+    updateBill(
+      billId: ID!
+      date: String!
+      remarks: String
+      categoryId: ID!
+    ): Bill!
+    deleteBill(billId: ID!): Boolean!
   }
 `;

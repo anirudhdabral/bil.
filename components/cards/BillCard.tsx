@@ -1,11 +1,27 @@
 "use client";
 
+import { useMutation } from "@apollo/client/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FiDownload, FiEye, FiMinus, FiPlus, FiRefreshCcw, FiX } from "react-icons/fi";
+import {
+  FiDownload,
+  FiEdit2,
+  FiEye,
+  FiMinus,
+  FiPlus,
+  FiRefreshCcw,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 
-import type { Bill } from "../../lib/graphql/types";
+import { DELETE_BILL } from "../../lib/graphql/operations";
+import type { Bill, BillCategory } from "../../lib/graphql/types";
+import { useAppDispatch } from "../../lib/redux/hooks";
+import { setGlobalError, setGlobalLoading } from "../../lib/redux/slices/uiSlice";
+import { EditBillForm } from "../forms/EditBillForm";
+import { ConfirmActionDialog } from "../ui/ConfirmActionDialog";
+import { Modal } from "../ui/Modal";
 
 function formatDate(dateValue: string) {
   const date = new Date(dateValue);
@@ -52,10 +68,21 @@ function formatStorageSize(bytes: number | null): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export function BillCard({ bill }: { bill: Bill }) {
+type BillCardProps = {
+  bill: Bill;
+  categories: BillCategory[];
+  onBillsChanged: () => Promise<void> | void;
+};
+
+export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
+  const dispatch = useAppDispatch();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const imageStorageSize = formatStorageSize(getStoredImageBytes(bill.imageUrl));
+
+  const [deleteBill, { loading: deleting }] = useMutation(DELETE_BILL);
 
   useEffect(() => {
     if (!isPreviewOpen) {
@@ -95,6 +122,21 @@ export function BillCard({ bill }: { bill: Bill }) {
 
   function zoomOut() {
     setZoom((current) => Math.max(current - 0.25, 1));
+  }
+
+  async function handleDelete() {
+    dispatch(setGlobalError(null));
+
+    try {
+      dispatch(setGlobalLoading(true));
+      await deleteBill({ variables: { billId: bill.id } });
+      setIsDeleteOpen(false);
+      await onBillsChanged();
+    } catch (error) {
+      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to delete bill"));
+    } finally {
+      dispatch(setGlobalLoading(false));
+    }
   }
 
   const previewOverlay =
@@ -216,9 +258,30 @@ export function BillCard({ bill }: { bill: Bill }) {
         )}
 
         <div className="space-y-1.5 p-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#b8926a]">
-            {bill.category.name}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#b8926a]">
+              {bill.category.name}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditOpen(true)}
+                aria-label="Edit bill"
+                className="text-[#78604a] transition hover:text-amber-700"
+              >
+                <FiEdit2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDeleteOpen(true)}
+                disabled={deleting}
+                aria-label="Delete bill"
+                className="text-[#78604a] transition hover:text-red-700 disabled:opacity-60"
+              >
+                <FiTrash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-[#1a1208]">{formatDate(bill.date)}</p>
             {imageStorageSize ? <p className="text-xs font-semibold text-[#b8926a]">{imageStorageSize}</p> : null}
@@ -228,7 +291,30 @@ export function BillCard({ bill }: { bill: Bill }) {
           </p>
         </div>
       </article>
+
       {previewOverlay}
+
+      <Modal title="Edit Bill" open={isEditOpen} onClose={() => setIsEditOpen(false)}>
+        <EditBillForm
+          bill={bill}
+          categories={categories}
+          onCancel={() => setIsEditOpen(false)}
+          onSuccess={async () => {
+            setIsEditOpen(false);
+            await onBillsChanged();
+          }}
+        />
+      </Modal>
+
+      <ConfirmActionDialog
+        open={isDeleteOpen}
+        title="Delete Bill"
+        message="This bill will be removed permanently. This action cannot be undone."
+        confirmLabel="Delete Bill"
+        loading={deleting}
+        onCancel={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

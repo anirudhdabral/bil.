@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { FiClock, FiLogOut } from "react-icons/fi";
 
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { RefetchButton } from "../../components/ui/RefetchButton";
+import { logoutAndClearSession } from "../../lib/logout";
 
 type SignInStatus = {
   paused: boolean;
@@ -44,27 +45,25 @@ export default function PendingPage() {
   };
 
   useEffect(() => {
-    // Only fetch if authenticated
     if (status === "authenticated") {
-       // Use a local variable to avoid calling the external function directly if lint is mad
-       // Actually let's just do it directly here
-       const fetchStatus = async () => {
-         try {
-           const response = await fetch("/api/auth/signin-status", { cache: "no-store" });
-           const data = await response.json();
-           setSignInStatus(data);
-         } catch {
-           setSignInStatus(null);
-         }
-       };
-       void fetchStatus();
+      const fetchStatus = async () => {
+        try {
+          const response = await fetch("/api/auth/signin-status", { cache: "no-store" });
+          const data = (await response.json()) as SignInStatus;
+          setSignInStatus(data);
+        } catch {
+          setSignInStatus(null);
+        }
+      };
+
+      void fetchStatus();
     }
   }, [status]);
 
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
@@ -100,7 +99,7 @@ export default function PendingPage() {
           "radial-gradient(ellipse 80% 50% at 20% -10%, rgba(245,158,11,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 110%, rgba(245,158,11,0.08) 0%, transparent 60%)",
       }}
     >
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
@@ -126,7 +125,7 @@ export default function PendingPage() {
               : "Once approved, your access will activate automatically the next time your session refreshes."}
           </p>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
@@ -149,7 +148,7 @@ export default function PendingPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => void logoutAndClearSession()}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 text-sm font-semibold text-[#1a1208] transition hover:bg-amber-500"
             >
               <FiLogOut className="h-4 w-4" />

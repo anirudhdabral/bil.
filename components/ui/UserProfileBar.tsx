@@ -1,6 +1,8 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
+import { logoutAndClearSession } from "../../lib/logout";
 
 export function UserProfileBar() {
   const { data } = useSession();
@@ -16,7 +18,7 @@ export function UserProfileBar() {
       </span>
       <button
         type="button"
-        onClick={() => signOut({ callbackUrl: "/login" })}
+        onClick={() => void logoutAndClearSession()}
         className="rounded-md border border-slate-300 bg-white px-2 py-1 font-medium text-slate-700 hover:bg-slate-50"
       >
         Logout

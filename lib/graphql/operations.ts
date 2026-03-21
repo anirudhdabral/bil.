@@ -141,6 +141,21 @@ export const CREATE_CATEGORY = gql`
   }
 `;
 
+export const UPDATE_CATEGORY = gql`
+  mutation UpdateCategory($categoryId: ID!, $name: String!) {
+    updateCategory(categoryId: $categoryId, name: $name) {
+      id
+      name
+    }
+  }
+`;
+
+export const DELETE_CATEGORY = gql`
+  mutation DeleteCategory($categoryId: ID!) {
+    deleteCategory(categoryId: $categoryId)
+  }
+`;
+
 export const CREATE_BILL = gql`
   mutation CreateBill(
     $date: String!
@@ -165,5 +180,26 @@ export const CREATE_BILL = gql`
         name
       }
     }
+  }
+`;
+
+export const UPDATE_BILL = gql`
+  mutation UpdateBill($billId: ID!, $date: String!, $remarks: String, $categoryId: ID!) {
+    updateBill(billId: $billId, date: $date, remarks: $remarks, categoryId: $categoryId) {
+      id
+      date
+      remarks
+      imageUrl
+      category {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const DELETE_BILL = gql`
+  mutation DeleteBill($billId: ID!) {
+    deleteBill(billId: $billId)
   }
 `;

@@ -1,21 +1,26 @@
 "use client";
 
 import { useMutation, useQuery } from "@apollo/client/react";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiChevronDown, FiLogOut, FiShield, FiUserPlus, FiUsers } from "react-icons/fi";
+import { FiChevronDown, FiEdit2, FiHome, FiLogOut, FiShield, FiTrash2, FiUserPlus } from "react-icons/fi";
 
+import { EditCategoryForm } from "../../components/forms/EditCategoryForm";
 import {
+  DELETE_CATEGORY,
+  GET_CATEGORIES_BY_HOME,
   GET_HOME_BY_ID,
   GET_HOMES,
   INVITE_USER_TO_HOME,
   PROMOTE_HOME_MEMBER_TO_ADMIN,
 } from "../../lib/graphql/operations";
-import type { Home } from "../../lib/graphql/types";
+import type { BillCategory, Home } from "../../lib/graphql/types";
+import { logoutAndClearSession } from "../../lib/logout";
 import { useAppDispatch, useAppSelector } from "../../lib/redux/hooks";
 import { setGlobalError } from "../../lib/redux/slices/uiSlice";
+import { ConfirmActionDialog } from "./ConfirmActionDialog";
 import { Modal } from "./Modal";
 
 function initials(nameOrEmail: string): string {
@@ -42,10 +47,18 @@ export function AppNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [editingCategory, setEditingCategory] = useState<BillCategory | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<BillCategory | null>(null);
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: selectedHomeId ?? "" },
-    skip: !selectedHomeId || !manageOpen,
+    skip: !selectedHomeId,
+    fetchPolicy: "cache-and-network",
+  });
+
+  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
+    variables: { homeId: selectedHomeId ?? "" },
+    skip: !selectedHomeId,
     fetchPolicy: "cache-and-network",
   });
 
@@ -69,7 +82,15 @@ export function AppNavbar() {
     awaitRefetchQueries: true,
   });
 
+  const [deleteCategory, deleteCategoryState] = useMutation(DELETE_CATEGORY, {
+    refetchQueries: selectedHomeId
+      ? [{ query: GET_CATEGORIES_BY_HOME, variables: { homeId: selectedHomeId } }]
+      : [],
+    awaitRefetchQueries: true,
+  });
+
   const home = homeQuery.data?.getHomeById ?? null;
+  const categories = categoryQuery.data?.getCategoriesByHome ?? [];
   const viewerEmail = session?.user?.email?.toLowerCase() ?? "";
   const isAdmin = !!home && home.owners.map((owner) => owner.toLowerCase()).includes(viewerEmail);
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
@@ -140,6 +161,20 @@ export function AppNavbar() {
     }
   }
 
+  async function onDeleteCategory() {
+    if (!deletingCategory) {
+      return;
+    }
+
+    try {
+      dispatch(setGlobalError(null));
+      await deleteCategory({ variables: { categoryId: deletingCategory.id } });
+      setDeletingCategory(null);
+    } catch (error) {
+      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to delete category"));
+    }
+  }
+
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-[#e8d8c0] bg-[#fdf8f0]/95 backdrop-blur-md">
@@ -202,22 +237,23 @@ export function AppNavbar() {
                       Approve Users
                     </Link>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setManageOpen(true);
-                    }}
-                    disabled={!selectedHomeId}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <FiUsers className="h-4 w-4 text-amber-600" />
-                    Manage Home Users
-                  </button>
+                  {selectedHomeId && isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setManageOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
+                    >
+                      <FiHome className="h-4 w-4 text-amber-600" />
+                      Manage Home
+                    </button>
+                  ) : null}
                   <div className="my-1 h-px bg-[#e8d8c0]" />
                   <button
                     type="button"
-                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    onClick={() => void logoutAndClearSession()}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-700 transition hover:bg-red-50"
                   >
                     <FiLogOut className="h-4 w-4" />
@@ -231,7 +267,7 @@ export function AppNavbar() {
       </header>
 
       <Modal
-        title="Manage Home Users"
+        title="Manage Home"
         open={manageOpen}
         onClose={() => {
           setManageOpen(false);
@@ -240,8 +276,8 @@ export function AppNavbar() {
       >
         {!selectedHomeId ? (
           <p className="text-sm text-[#78604a]">Open a home first, then manage its users from this menu.</p>
-        ) : homeQuery.loading ? (
-          <p className="text-sm text-[#78604a]">Loading home users...</p>
+        ) : homeQuery.loading && !home ? (
+          <p className="text-sm text-[#78604a]">Loading home details...</p>
         ) : !home ? (
           <p className="text-sm text-[#78604a]">Home not found.</p>
         ) : (
@@ -280,6 +316,46 @@ export function AppNavbar() {
             </div>
 
             <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Categories</p>
+              </div>
+              {categoryQuery.loading && categories.length === 0 ? (
+                <p className="text-sm text-[#78604a]">Loading categories...</p>
+              ) : categories.length > 0 ? (
+                <div className="space-y-2">
+                  {categories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between rounded-xl border border-[#e8d8c0] bg-white/60 px-3 py-2.5"
+                    >
+                      <p className="text-sm font-medium text-[#1a1208]">{category.name}</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategory(category)}
+                          aria-label={`Edit ${category.name}`}
+                          className="text-[#78604a] transition hover:text-amber-700"
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingCategory(category)}
+                          aria-label={`Delete ${category.name}`}
+                          className="text-[#78604a] transition hover:text-red-700"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#78604a]">No categories yet.</p>
+              )}
+            </div>
+
+            <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">Invite User</p>
               <form className="flex gap-2" onSubmit={(event) => void onInviteSubmit(event)}>
                 <input
@@ -314,6 +390,29 @@ export function AppNavbar() {
           </div>
         )}
       </Modal>
+
+      <Modal title="Edit Category" open={!!editingCategory} onClose={() => setEditingCategory(null)}>
+        {editingCategory ? (
+          <EditCategoryForm
+            category={editingCategory}
+            onCancel={() => setEditingCategory(null)}
+            onSuccess={async () => {
+              setEditingCategory(null);
+              await categoryQuery.refetch();
+            }}
+          />
+        ) : null}
+      </Modal>
+
+      <ConfirmActionDialog
+        open={!!deletingCategory}
+        title="Delete Category"
+        message="This category will be removed permanently. Categories with bills cannot be deleted."
+        confirmLabel="Delete Category"
+        loading={deleteCategoryState.loading}
+        onCancel={() => setDeletingCategory(null)}
+        onConfirm={onDeleteCategory}
+      />
     </>
   );
 }

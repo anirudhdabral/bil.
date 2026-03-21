@@ -1,4 +1,3 @@
-
 export function setCookie(name: string, value: string, days = 365 * 50) {
   if (typeof document === "undefined") return;
   const expires = new Date();
@@ -20,5 +19,19 @@ export function getCookie(name: string): string | null {
 
 export function deleteCookie(name: string) {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=;Max-Age=-99999999;path=/;SameSite=Lax`;
+
+  const hostname = window.location.hostname;
+  const parts = hostname.split(".");
+  const domains = new Set<string>(["", hostname]);
+
+  if (parts.length > 1) {
+    for (let index = 0; index <= parts.length - 2; index += 1) {
+      domains.add(`.${parts.slice(index).join(".")}`);
+    }
+  }
+
+  domains.forEach((domain) => {
+    const domainSegment = domain ? `;domain=${domain}` : "";
+    document.cookie = `${name}=;Max-Age=0;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/${domainSegment};SameSite=Lax`;
+  });
 }
