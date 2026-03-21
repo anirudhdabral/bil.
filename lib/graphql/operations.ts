@@ -154,6 +154,18 @@ export const DECLINE_HOME_INVITE = gql`
   }
 `;
 
+export const UPDATE_HOME = gql`
+  mutation UpdateHome($homeId: ID!, $houseNo: String!, $address: String!) {
+    updateHome(homeId: $homeId, houseNo: $houseNo, address: $address) {
+      id
+      houseNo
+      address
+      owners
+      members
+      pendingInvites
+    }
+  }
+`;
 export const CREATE_CATEGORY = gql`
   mutation CreateCategory($name: String!, $homeId: ID!) {
     createCategory(name: $name, homeId: $homeId) {
@@ -225,3 +237,4 @@ export const DELETE_BILL = gql`
     deleteBill(billId: $billId)
   }
 `;
+

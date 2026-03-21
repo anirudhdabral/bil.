@@ -27,11 +27,8 @@ export async function GET() {
     await requireSuperAdmin();
     await connectToDatabase();
 
-    const users = await User.find({
-      approved: false,
-      role: USER_ROLES.USER,
-    })
-      .sort({ createdAt: 1 })
+    const users = await User.find({})
+      .sort({ approved: 1, role: 1, createdAt: 1 })
       .lean();
 
     return NextResponse.json({ users });

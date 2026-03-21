@@ -315,6 +315,41 @@ export const resolvers = {
         throwInternalError(error);
       }
     },
+    updateHome: async (_parent: unknown, args: { homeId: string; houseNo: string; address: string }, context: GraphQLContext) => {
+      try {
+        const userEmail = requireUserEmail(context);
+        assertObjectId(args.homeId, "homeId");
+        const houseNo = args.houseNo?.trim();
+        const address = args.address?.trim();
+
+        if (!houseNo || !address) {
+          throw new GraphQLError("houseNo and address are required", {
+            extensions: { code: "BAD_USER_INPUT" },
+          });
+        }
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        const owners = getHomeOwners(home);
+        if (!owners.includes(userEmail)) {
+          throw new GraphQLError("Only home owner can update home details", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+
+        home.houseNo = houseNo;
+        home.address = address;
+        await home.save();
+        return home;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
 
     inviteUserToHome: async (_parent: unknown, args: { homeId: string; email: string }, context: GraphQLContext) => {
       try {
@@ -738,3 +773,4 @@ export const resolvers = {
     date: (parent: { date: Date }) => parent.date.toISOString(),
   },
 };
+

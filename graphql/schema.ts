@@ -45,6 +45,7 @@ export const typeDefs = `#graphql
 
   type Mutation {
     createHome(houseNo: String!, address: String!): Home!
+    updateHome(homeId: ID!, houseNo: String!, address: String!): Home!
     createCategory(name: String!, homeId: ID!): BillCategory!
     updateCategory(categoryId: ID!, name: String!): BillCategory!
     deleteCategory(categoryId: ID!): Boolean!

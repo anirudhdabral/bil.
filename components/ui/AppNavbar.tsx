@@ -12,6 +12,7 @@ import {
   FiLogOut,
   FiShield,
   FiTrash2,
+  FiUser,
   FiUserMinus,
   FiUserPlus,
   FiX,
@@ -27,6 +28,7 @@ import {
   INVITE_USER_TO_HOME,
   PROMOTE_HOME_MEMBER_TO_ADMIN,
   REMOVE_MEMBER_FROM_HOME,
+  UPDATE_HOME,
 } from "../../lib/graphql/operations";
 import type { BillCategory, Home } from "../../lib/graphql/types";
 import { logoutAndClearSession } from "../../lib/logout";
@@ -49,14 +51,23 @@ export function AppNavbar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { data: session } = useSession();
-  const selectedHomeId = useAppSelector((state) => state.selectedHome.selectedHomeId);
+  const selectedHomeId = useAppSelector(
+    (state) => state.selectedHome.selectedHomeId,
+  );
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [editingCategory, setEditingCategory] = useState<BillCategory | null>(null);
-  const [deletingCategory, setDeletingCategory] = useState<BillCategory | null>(null);
+  const [homeHouseNo, setHomeHouseNo] = useState("");
+  const [homeAddress, setHomeAddress] = useState("");
+  const [homeFormError, setHomeFormError] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<BillCategory | null>(
+    null,
+  );
+  const [deletingCategory, setDeletingCategory] = useState<BillCategory | null>(
+    null,
+  );
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: selectedHomeId ?? "" },
@@ -64,11 +75,14 @@ export function AppNavbar() {
     fetchPolicy: "cache-and-network",
   });
 
-  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
-    variables: { homeId: selectedHomeId ?? "" },
-    skip: !selectedHomeId,
-    fetchPolicy: "cache-and-network",
-  });
+  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(
+    GET_CATEGORIES_BY_HOME,
+    {
+      variables: { homeId: selectedHomeId ?? "" },
+      skip: !selectedHomeId,
+      fetchPolicy: "cache-and-network",
+    },
+  );
 
   const refetchHomeQueries = selectedHomeId
     ? [
@@ -82,24 +96,40 @@ export function AppNavbar() {
     awaitRefetchQueries: true,
   });
 
-  const [promoteMember, promoteMemberState] = useMutation(PROMOTE_HOME_MEMBER_TO_ADMIN, {
-    refetchQueries: refetchHomeQueries,
-    awaitRefetchQueries: true,
-  });
+  const [promoteMember, promoteMemberState] = useMutation(
+    PROMOTE_HOME_MEMBER_TO_ADMIN,
+    {
+      refetchQueries: refetchHomeQueries,
+      awaitRefetchQueries: true,
+    },
+  );
 
-  const [removeMember, removeMemberState] = useMutation(REMOVE_MEMBER_FROM_HOME, {
-    refetchQueries: refetchHomeQueries,
-    awaitRefetchQueries: true,
-  });
+  const [removeMember, removeMemberState] = useMutation(
+    REMOVE_MEMBER_FROM_HOME,
+    {
+      refetchQueries: refetchHomeQueries,
+      awaitRefetchQueries: true,
+    },
+  );
 
   const [cancelInvite, cancelInviteState] = useMutation(CANCEL_HOME_INVITE, {
     refetchQueries: refetchHomeQueries,
     awaitRefetchQueries: true,
   });
 
+  const [updateHome, updateHomeState] = useMutation(UPDATE_HOME, {
+    refetchQueries: refetchHomeQueries,
+    awaitRefetchQueries: true,
+  });
+
   const [deleteCategory, deleteCategoryState] = useMutation(DELETE_CATEGORY, {
     refetchQueries: selectedHomeId
-      ? [{ query: GET_CATEGORIES_BY_HOME, variables: { homeId: selectedHomeId } }]
+      ? [
+          {
+            query: GET_CATEGORIES_BY_HOME,
+            variables: { homeId: selectedHomeId },
+          },
+        ]
       : [],
     awaitRefetchQueries: true,
   });
@@ -107,14 +137,17 @@ export function AppNavbar() {
   const home = homeQuery.data?.getHomeById ?? null;
   const categories = categoryQuery.data?.getCategoriesByHome ?? [];
   const viewerEmail = session?.user?.email?.toLowerCase() ?? "";
-  const isAdmin = !!home && home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
+  const isAdmin =
+    !!home && home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
   const memberRows = useMemo(() => {
     if (!home) return [] as Array<{ email: string; isOwner: boolean }>;
     return home.members.map((email) => ({
       email,
-      isOwner: home.owners.map((o) => o.toLowerCase()).includes(email.toLowerCase()),
+      isOwner: home.owners
+        .map((o) => o.toLowerCase())
+        .includes(email.toLowerCase()),
     }));
   }, [home]);
 
@@ -142,11 +175,18 @@ export function AppNavbar() {
     try {
       dispatch(setGlobalError(null));
       await inviteUser({
-        variables: { homeId: selectedHomeId, email: inviteEmail.trim().toLowerCase() },
+        variables: {
+          homeId: selectedHomeId,
+          email: inviteEmail.trim().toLowerCase(),
+        },
       });
       setInviteEmail("");
     } catch (error) {
-      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to invite user"));
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to invite user",
+        ),
+      );
     }
   }
 
@@ -156,7 +196,11 @@ export function AppNavbar() {
       dispatch(setGlobalError(null));
       await promoteMember({ variables: { homeId: selectedHomeId, email } });
     } catch (error) {
-      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to promote member"));
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to promote member",
+        ),
+      );
     }
   }
 
@@ -166,7 +210,11 @@ export function AppNavbar() {
       dispatch(setGlobalError(null));
       await removeMember({ variables: { homeId: selectedHomeId, email } });
     } catch (error) {
-      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to remove member"));
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to remove member",
+        ),
+      );
     }
   }
 
@@ -176,7 +224,43 @@ export function AppNavbar() {
       dispatch(setGlobalError(null));
       await cancelInvite({ variables: { homeId: selectedHomeId, email } });
     } catch (error) {
-      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to cancel invite"));
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to cancel invite",
+        ),
+      );
+    }
+  }
+
+  async function onUpdateHome(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedHomeId) return;
+
+    const nextHouseNo = homeHouseNo.trim();
+    const nextAddress = homeAddress.trim();
+
+    if (!nextHouseNo || !nextAddress) {
+      setHomeFormError("House number and address are required.");
+      return;
+    }
+
+    try {
+      setHomeFormError(null);
+      dispatch(setGlobalError(null));
+      await updateHome({
+        variables: {
+          homeId: selectedHomeId,
+          houseNo: nextHouseNo,
+          address: nextAddress,
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update home details";
+      setHomeFormError(message);
+      dispatch(setGlobalError(message));
     }
   }
 
@@ -187,7 +271,11 @@ export function AppNavbar() {
       await deleteCategory({ variables: { categoryId: deletingCategory.id } });
       setDeletingCategory(null);
     } catch (error) {
-      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to delete category"));
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to delete category",
+        ),
+      );
     }
   }
 
@@ -204,9 +292,30 @@ export function AppNavbar() {
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 ring-2 ring-amber-200 transition group-hover:ring-amber-400">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="7" r="6" stroke="#1a1208" strokeWidth="1.5" fill="none" />
-                <circle cx="7" cy="7" r="4" stroke="#1a1208" strokeWidth="1.5" fill="none" />
-                <circle cx="7" cy="7" r="2" stroke="#1a1208" strokeWidth="1.5" fill="none" />
+                <circle
+                  cx="7"
+                  cy="7"
+                  r="6"
+                  stroke="#1a1208"
+                  strokeWidth="1.5"
+                  fill="none"
+                />
+                <circle
+                  cx="7"
+                  cy="7"
+                  r="4"
+                  stroke="#1a1208"
+                  strokeWidth="1.5"
+                  fill="none"
+                />
+                <circle
+                  cx="7"
+                  cy="7"
+                  r="2"
+                  stroke="#1a1208"
+                  strokeWidth="1.5"
+                  fill="none"
+                />
               </svg>
             </span>
             <span>
@@ -230,10 +339,15 @@ export function AppNavbar() {
                     referrerPolicy="no-referrer"
                     className="h-full w-full object-cover"
                   />
-                ) : (
+                ) : session?.user?.name || session?.user?.email ? (
                   <span className="text-xs font-bold text-amber-800">
-                    {initials(session?.user?.name || session?.user?.email || "User")}
+                    {initials(session.user.name || session.user.email || "")}
                   </span>
+                ) : (
+                  <FiUser
+                    className="h-3.5 w-3.5 text-amber-800"
+                    aria-hidden="true"
+                  />
                 )}
               </span>
               <FiChevronDown
@@ -244,10 +358,16 @@ export function AppNavbar() {
             {menuOpen ? (
               <div className="absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-2xl border border-[#e8d8c0] bg-[#fdf8f0] shadow-xl shadow-amber-900/10">
                 <div className="border-b border-[#e8d8c0] bg-[#fef9f2] px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#78604a]">Signed in as</p>
-                  <p className="mt-0.5 truncate text-sm font-medium text-[#1a1208]">{session?.user?.email}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#78604a]">
+                    Signed in as
+                  </p>
+                  <p className="mt-0.5 truncate text-sm font-medium text-[#1a1208]">
+                    {session?.user?.email}
+                  </p>
                   {isSuperAdmin ? (
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Admin</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Super Admin
+                    </p>
                   ) : null}
                 </div>
                 <div className="p-1.5">
@@ -266,6 +386,9 @@ export function AppNavbar() {
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
+                        setHomeHouseNo(home?.houseNo ?? "");
+                        setHomeAddress(home?.address ?? "");
+                        setHomeFormError(null);
                         setManageOpen(true);
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
@@ -274,7 +397,9 @@ export function AppNavbar() {
                       Home Settings
                     </button>
                   ) : null}
-                  <div className="my-1 h-px bg-[#e8d8c0]" />
+                  {(isSuperAdmin || (selectedHomeId && isAdmin)) && (
+                    <div className="my-1 h-px bg-[#e8d8c0]" />
+                  )}
                   <button
                     type="button"
                     onClick={() => void logoutAndClearSession()}
@@ -290,7 +415,6 @@ export function AppNavbar() {
         </div>
       </header>
 
-      {/* ── Manage Home modal ── */}
       <Modal
         title="Manage Home"
         open={manageOpen}
@@ -300,22 +424,81 @@ export function AppNavbar() {
         }}
       >
         {!selectedHomeId ? (
-          <p className="text-sm text-[#78604a]">Open a home first, then manage its users from this menu.</p>
+          <p className="text-sm text-[#78604a]">
+            Open a home first, then manage its users from this menu.
+          </p>
         ) : homeQuery.loading && !home ? (
           <p className="text-sm text-[#78604a]">Loading home details...</p>
         ) : !home ? (
           <p className="text-sm text-[#78604a]">Home not found.</p>
         ) : (
           <div className="space-y-5">
-            {/* Home info */}
-            <div className="rounded-xl border border-[#e8d8c0] bg-[#fef9f2] px-4 py-3">
-              <p className="text-sm font-bold text-[#1a1208]">House {home.houseNo}</p>
-              <p className="mt-0.5 text-xs text-[#78604a]">{home.address}</p>
+            <div className="rounded-xl border border-[#e8d8c0] bg-[#fef9f2] px-4 py-4">
+              <div className="mb-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                  Home Details
+                </p>
+                <p className="mt-1 text-sm text-[#78604a]">
+                  Update the home name and address shown to all members.
+                </p>
+              </div>
+              <form
+                className="space-y-3"
+                onSubmit={(event) => void onUpdateHome(event)}
+              >
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                    Home Name
+                  </span>
+                  <input
+                    value={homeHouseNo}
+                    maxLength={10}
+                    onChange={(event) => setHomeHouseNo(event.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#e8d8c0] bg-white/80 px-3 py-2 text-sm text-[#1a1208] transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    required
+                    disabled={!isAdmin || updateHomeState.loading}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                    Address
+                  </span>
+                  <input
+                    value={homeAddress}
+                    maxLength={50}
+                    onChange={(event) => setHomeAddress(event.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#e8d8c0] bg-white/80 px-3 py-2 text-sm text-[#1a1208] transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    required
+                    disabled={!isAdmin || updateHomeState.loading}
+                  />
+                </label>
+                {homeFormError ? (
+                  <p className="text-xs text-red-600">{homeFormError}</p>
+                ) : null}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#1a1208]">
+                      House {home.houseNo}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#78604a]">
+                      {home.address}
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!isAdmin || updateHomeState.loading}
+                    className="inline-flex items-center rounded-xl bg-amber-400 px-3 py-2 text-sm font-semibold text-[#1a1208] shadow-sm transition hover:bg-amber-500 disabled:opacity-60"
+                  >
+                    {updateHomeState.loading ? "Saving..." : "Save Details"}
+                  </button>
+                </div>
+              </form>
             </div>
 
-            {/* Members */}
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">Members</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                Members
+              </p>
               <div className="space-y-2">
                 {memberRows.map((member) => (
                   <div
@@ -323,13 +506,16 @@ export function AppNavbar() {
                     className="flex items-center justify-between gap-2 rounded-xl border border-[#e8d8c0] bg-white/60 px-3 py-2.5"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#1a1208]">{member.email}</p>
-                      <p className="text-xs text-[#78604a]">{member.isOwner ? "Admin" : "Member"}</p>
+                      <p className="truncate text-sm font-medium text-[#1a1208]">
+                        {member.email}
+                      </p>
+                      <p className="text-xs text-[#78604a]">
+                        {member.isOwner ? "Admin" : "Member"}
+                      </p>
                     </div>
 
                     {isAdmin ? (
                       <div className="flex shrink-0 items-center gap-1.5">
-                        {/* Make Admin — only for non-admins */}
                         {!member.isOwner ? (
                           <button
                             type="button"
@@ -342,8 +528,8 @@ export function AppNavbar() {
                           </button>
                         ) : null}
 
-                        {/* Remove — only for non-admin members who are not yourself */}
-                        {!member.isOwner && member.email.toLowerCase() !== viewerEmail ? (
+                        {!member.isOwner &&
+                        member.email.toLowerCase() !== viewerEmail ? (
                           <button
                             type="button"
                             onClick={() => void onRemoveMember(member.email)}
@@ -362,10 +548,11 @@ export function AppNavbar() {
               </div>
             </div>
 
-            {/* Categories */}
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Categories</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                  Categories
+                </p>
               </div>
               {categoryQuery.loading && categories.length === 0 ? (
                 <p className="text-sm text-[#78604a]">Loading categories...</p>
@@ -376,7 +563,9 @@ export function AppNavbar() {
                       key={category.id}
                       className="flex items-center justify-between rounded-xl border border-[#e8d8c0] bg-white/60 px-3 py-2.5"
                     >
-                      <p className="text-sm font-medium text-[#1a1208]">{category.name}</p>
+                      <p className="text-sm font-medium text-[#1a1208]">
+                        {category.name}
+                      </p>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -403,10 +592,14 @@ export function AppNavbar() {
               )}
             </div>
 
-            {/* Invite user */}
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">Invite User</p>
-              <form className="flex gap-2" onSubmit={(event) => void onInviteSubmit(event)}>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">
+                Invite User
+              </p>
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => void onInviteSubmit(event)}
+              >
                 <input
                   type="email"
                   value={inviteEmail}
@@ -426,17 +619,23 @@ export function AppNavbar() {
                 </button>
               </form>
               {!isAdmin ? (
-                <p className="mt-1.5 text-xs text-amber-700">Only admins can invite or promote users.</p>
+                <p className="mt-1.5 text-xs text-amber-700">
+                  Only admins can invite or promote users.
+                </p>
               ) : null}
             </div>
 
-            {/* Pending invites */}
             {home.pendingInvites.length > 0 ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">Pending Invites</p>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">
+                  Pending Invites
+                </p>
                 <div className="space-y-2">
                   {home.pendingInvites.map((email) => (
-                    <div key={email} className="flex items-center justify-between gap-2">
+                    <div
+                      key={email}
+                      className="flex items-center justify-between gap-2"
+                    >
                       <p className="truncate text-xs text-amber-900">{email}</p>
                       {isAdmin ? (
                         <button
@@ -459,8 +658,11 @@ export function AppNavbar() {
         )}
       </Modal>
 
-      {/* ── Edit category modal ── */}
-      <Modal title="Edit Category" open={!!editingCategory} onClose={() => setEditingCategory(null)}>
+      <Modal
+        title="Edit Category"
+        open={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+      >
         {editingCategory ? (
           <EditCategoryForm
             category={editingCategory}
@@ -473,7 +675,6 @@ export function AppNavbar() {
         ) : null}
       </Modal>
 
-      {/* ── Delete category confirm ── */}
       <ConfirmActionDialog
         open={!!deletingCategory}
         title="Delete Category"
