@@ -71,7 +71,10 @@ export function BillCard({ bill, categories, onBillsChanged }: BillCardProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const imageStorageSize = formatStorageSize(getStoredImageBytes(bill.imageUrl));
 
-  const [deleteBill, { loading: deleting }] = useMutation(DELETE_BILL);
+  const [deleteBill, { loading: deleting }] = useMutation(DELETE_BILL, {
+    refetchQueries: "active",
+    awaitRefetchQueries: true,
+  });
 
   async function handleDelete() {
     dispatch(setGlobalError(null));

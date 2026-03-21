@@ -31,7 +31,10 @@ export function EditBillForm({ bill, categories, onSuccess, onCancel }: EditBill
     setCategoryId(bill.category.id);
   }, [bill.category.id, bill.remarks, initialDate]);
 
-  const [updateBill, { loading, error }] = useMutation(UPDATE_BILL);
+  const [updateBill, { loading, error }] = useMutation(UPDATE_BILL, {
+    refetchQueries: "active",
+    awaitRefetchQueries: true,
+  });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

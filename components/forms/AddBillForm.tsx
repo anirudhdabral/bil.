@@ -3,20 +3,28 @@
 import { useMutation } from "@apollo/client/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { PhotoView } from "react-photo-view";
-import { FiCamera, FiCheck, FiRotateCcw, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
-
 import {
-  CREATE_BILL,
-} from "../../lib/graphql/operations";
+  FiCamera,
+  FiCheck,
+  FiRotateCcw,
+  FiTrash2,
+  FiUploadCloud,
+  FiX,
+} from "react-icons/fi";
+
+import { CREATE_BILL } from "../../lib/graphql/operations";
 import type { BillCategory } from "../../lib/graphql/types";
 import { useAppDispatch } from "../../lib/redux/hooks";
-import { setGlobalError, setGlobalLoading } from "../../lib/redux/slices/uiSlice";
+import {
+  setGlobalError,
+  setGlobalLoading,
+} from "../../lib/redux/slices/uiSlice";
 import { ErrorMessage } from "../ui/ErrorMessage";
 
 type AddBillFormProps = {
   homeId: string;
   categories: BillCategory[];
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
 };
 
 function toJpgFilename(name: string) {
@@ -54,7 +62,11 @@ async function normalizeSelectedImage(file: File): Promise<File> {
   });
 }
 
-export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps) {
+export function AddBillForm({
+  homeId,
+  categories,
+  onSuccess,
+}: AddBillFormProps) {
   const dispatch = useAppDispatch();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const fileInputId = useId();
@@ -67,7 +79,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
-  const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
+  const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(
+    null,
+  );
   const [preparingImage, setPreparingImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -114,7 +128,10 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
     };
   }, [capturedPreviewUrl]);
 
-  const [createBill, { loading, error }] = useMutation(CREATE_BILL);
+  const [createBill, { loading, error }] = useMutation(CREATE_BILL, {
+    refetchQueries: "active",
+    awaitRefetchQueries: true,
+  });
 
   async function handleImageSelection(file: File | null) {
     setFormError(null);
@@ -132,7 +149,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
     } catch (selectionError) {
       setImage(null);
       setFormError(
-        selectionError instanceof Error ? selectionError.message : "Failed to process selected image."
+        selectionError instanceof Error
+          ? selectionError.message
+          : "Failed to process selected image.",
       );
     } finally {
       setPreparingImage(false);
@@ -186,10 +205,14 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         }
         return null;
       });
-      onSuccess();
+      await onSuccess();
     } catch (mutationError) {
       dispatch(
-        setGlobalError(mutationError instanceof Error ? mutationError.message : "Failed to create bill")
+        setGlobalError(
+          mutationError instanceof Error
+            ? mutationError.message
+            : "Failed to create bill",
+        ),
       );
     } finally {
       dispatch(setGlobalLoading(false));
@@ -232,7 +255,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         }
       });
     } catch {
-      setCameraError("Unable to access camera. Please check camera permissions.");
+      setCameraError(
+        "Unable to access camera. Please check camera permissions.",
+      );
     }
   }
 
@@ -290,7 +315,7 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         });
       },
       "image/jpeg",
-      0.9
+      0.9,
     );
   }
 
@@ -328,7 +353,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <label className="block">
-        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Date</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+          Date
+        </span>
         <input
           type="date"
           value={date}
@@ -339,7 +366,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
       </label>
 
       <label className="block">
-        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Remarks</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+          Remarks
+        </span>
         <textarea
           value={remarks}
           maxLength={255}
@@ -351,7 +380,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
       </label>
 
       <label className="block">
-        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Category</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+          Category
+        </span>
         <select
           value={categoryId}
           onChange={(event) => setCategoryId(event.target.value)}
@@ -370,7 +401,9 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
       </label>
 
       <div className="space-y-2.5">
-        <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Image (optional)</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">
+          Image (optional)
+        </p>
         <input
           id={fileInputId}
           type="file"
@@ -410,18 +443,33 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
           ) : null}
         </div>
         {image ? (
-          <p className="truncate text-xs font-medium text-[#78604a]">{image.name}</p>
+          <p className="truncate text-xs font-medium text-[#78604a]">
+            {image.name}
+          </p>
         ) : (
-          <p className="text-xs text-[#b8926a]">Modern phone images are converted to JPG automatically, max 2MB after conversion.</p>
+          <p className="text-xs text-[#b8926a]">
+            Modern phone images are converted to JPG automatically, max 2MB
+            after conversion.
+          </p>
         )}
-        {imagePreviewUrl ? renderPreview(imagePreviewUrl, "Selected preview", "max-h-40 w-full rounded-lg object-contain") : null}
-        {cameraError ? <p className="text-xs text-red-600">{cameraError}</p> : null}
+        {imagePreviewUrl
+          ? renderPreview(
+              imagePreviewUrl,
+              "Selected preview",
+              "max-h-40 w-full rounded-lg object-contain",
+            )
+          : null}
+        {cameraError ? (
+          <p className="text-xs text-red-600">{cameraError}</p>
+        ) : null}
       </div>
 
       {cameraOpen ? (
         <div className="space-y-3 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60">
           <div className="border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Camera Capture</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
+              Camera Capture
+            </p>
           </div>
           <div className="space-y-3 px-4 pb-4">
             {!capturedPreviewUrl ? (
@@ -454,7 +502,11 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
               </>
             ) : (
               <>
-                {renderPreview(capturedPreviewUrl, "Captured preview", "h-56 w-full rounded-xl bg-white object-contain")}
+                {renderPreview(
+                  capturedPreviewUrl,
+                  "Captured preview",
+                  "h-56 w-full rounded-xl bg-white object-contain",
+                )}
                 <p className="text-xs font-medium text-[#78604a]">
                   Use this photo for the bill?
                 </p>
@@ -506,10 +558,16 @@ export function AddBillForm({ homeId, categories, onSuccess }: AddBillFormProps)
         disabled={loading || preparingImage || categories.length === 0}
         className="w-full rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#1a1208] shadow-sm shadow-amber-200 transition hover:bg-amber-500 active:scale-[0.98] disabled:opacity-60"
       >
-        {preparingImage ? "Processing image..." : loading ? "Saving..." : "Save Bill"}
+        {preparingImage
+          ? "Processing image..."
+          : loading
+            ? "Saving..."
+            : "Save Bill"}
       </button>
       {categories.length === 0 ? (
-        <p className="text-xs font-medium text-amber-700">Add a category before creating a bill.</p>
+        <p className="text-xs font-medium text-amber-700">
+          Add a category before creating a bill.
+        </p>
       ) : null}
     </form>
   );
