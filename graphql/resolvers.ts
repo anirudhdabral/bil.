@@ -391,6 +391,70 @@ export const resolvers = {
       }
     },
 
+    removeMemberFromHome: async (_parent: unknown, args: { homeId: string; email: string }, context: GraphQLContext) => {
+      try {
+        const userEmail = requireUserEmail(context);
+        assertObjectId(args.homeId, "homeId");
+        const targetEmail = validateEmail(args.email);
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        const owners = getHomeOwners(home);
+        if (!owners.includes(userEmail)) {
+          throw new GraphQLError("Only home owner can remove members", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+
+        if (owners.includes(targetEmail)) {
+          throw new GraphQLError("Cannot remove an admin from the home", {
+            extensions: { code: "BAD_USER_INPUT" },
+          });
+        }
+
+        const members = normalizeEmails(home.members);
+        home.members = members.filter((email) => email !== targetEmail);
+        await home.save();
+        return home;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
+    cancelHomeInvite: async (_parent: unknown, args: { homeId: string; email: string }, context: GraphQLContext) => {
+      try {
+        const userEmail = requireUserEmail(context);
+        assertObjectId(args.homeId, "homeId");
+        const targetEmail = validateEmail(args.email);
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        const owners = getHomeOwners(home);
+        if (!owners.includes(userEmail)) {
+          throw new GraphQLError("Only home owner can cancel invites", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+
+        const pendingInvites = getPendingInvites(home);
+        home.pendingInvites = pendingInvites.filter((email) => email !== targetEmail);
+        await home.save();
+        return home;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
     acceptHomeInvite: async (_parent: unknown, args: { homeId: string }, context: GraphQLContext) => {
       try {
         const userEmail = requireUserEmail(context);

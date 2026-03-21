@@ -50,6 +50,8 @@ export const typeDefs = `#graphql
     deleteCategory(categoryId: ID!): Boolean!
     inviteUserToHome(homeId: ID!, email: String!): Home!
     promoteHomeMemberToAdmin(homeId: ID!, email: String!): Home!
+    removeMemberFromHome(homeId: ID!, email: String!): Home!
+    cancelHomeInvite(homeId: ID!, email: String!): Home!
     acceptHomeInvite(homeId: ID!): Home!
     declineHomeInvite(homeId: ID!): Home!
     createBill(

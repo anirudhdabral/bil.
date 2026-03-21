@@ -26,7 +26,7 @@ export default function HomePage() {
   const isAddHomeOpen = useAppSelector((state) => state.ui.isAddHomeOpen);
 
   const { data, loading, error, refetch: refetchHomes } = useQuery<{ getHomes: Home[] }>(GET_HOMES, {
-    fetchPolicy: "cache-first",
+    fetchPolicy: "network-only",
   });
   const { 
     data: pendingData, 
@@ -34,7 +34,7 @@ export default function HomePage() {
     error: pendingError, 
     refetch: refetchInvites 
   } = useQuery<{ getPendingHomeInvites: Home[] }>(GET_PENDING_HOME_INVITES, {
-    fetchPolicy: "cache-first",
+    fetchPolicy: "network-only",
   });
   
   const homes = data?.getHomes ?? [];

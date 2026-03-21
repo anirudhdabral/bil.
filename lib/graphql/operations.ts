@@ -113,6 +113,28 @@ export const PROMOTE_HOME_MEMBER_TO_ADMIN = gql`
   }
 `;
 
+export const REMOVE_MEMBER_FROM_HOME = gql`
+  mutation RemoveMemberFromHome($homeId: ID!, $email: String!) {
+    removeMemberFromHome(homeId: $homeId, email: $email) {
+      id
+      owners
+      members
+      pendingInvites
+    }
+  }
+`;
+
+export const CANCEL_HOME_INVITE = gql`
+  mutation CancelHomeInvite($homeId: ID!, $email: String!) {
+    cancelHomeInvite(homeId: $homeId, email: $email) {
+      id
+      owners
+      members
+      pendingInvites
+    }
+  }
+`;
+
 export const ACCEPT_HOME_INVITE = gql`
   mutation AcceptHomeInvite($homeId: ID!) {
     acceptHomeInvite(homeId: $homeId) {

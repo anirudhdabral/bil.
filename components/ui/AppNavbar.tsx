@@ -5,16 +5,28 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiChevronDown, FiEdit2, FiHome, FiLogOut, FiShield, FiTrash2, FiUserPlus } from "react-icons/fi";
+import {
+  FiChevronDown,
+  FiEdit2,
+  FiHome,
+  FiLogOut,
+  FiShield,
+  FiTrash2,
+  FiUserMinus,
+  FiUserPlus,
+  FiX,
+} from "react-icons/fi";
 
 import { EditCategoryForm } from "../../components/forms/EditCategoryForm";
 import {
+  CANCEL_HOME_INVITE,
   DELETE_CATEGORY,
   GET_CATEGORIES_BY_HOME,
   GET_HOME_BY_ID,
   GET_HOMES,
   INVITE_USER_TO_HOME,
   PROMOTE_HOME_MEMBER_TO_ADMIN,
+  REMOVE_MEMBER_FROM_HOME,
 } from "../../lib/graphql/operations";
 import type { BillCategory, Home } from "../../lib/graphql/types";
 import { logoutAndClearSession } from "../../lib/logout";
@@ -25,15 +37,11 @@ import { Modal } from "./Modal";
 
 function initials(nameOrEmail: string): string {
   const cleaned = nameOrEmail.trim();
-  if (!cleaned) {
-    return "U";
-  }
-
+  if (!cleaned) return "U";
   const parts = cleaned.split(" ").filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
-
   return cleaned.slice(0, 2).toUpperCase();
 }
 
@@ -62,23 +70,30 @@ export function AppNavbar() {
     fetchPolicy: "cache-and-network",
   });
 
+  const refetchHomeQueries = selectedHomeId
+    ? [
+        { query: GET_HOME_BY_ID, variables: { id: selectedHomeId } },
+        { query: GET_HOMES },
+      ]
+    : [{ query: GET_HOMES }];
+
   const [inviteUser, inviteUserState] = useMutation(INVITE_USER_TO_HOME, {
-    refetchQueries: selectedHomeId
-      ? [
-          { query: GET_HOME_BY_ID, variables: { id: selectedHomeId } },
-          { query: GET_HOMES },
-        ]
-      : [{ query: GET_HOMES }],
+    refetchQueries: refetchHomeQueries,
     awaitRefetchQueries: true,
   });
 
   const [promoteMember, promoteMemberState] = useMutation(PROMOTE_HOME_MEMBER_TO_ADMIN, {
-    refetchQueries: selectedHomeId
-      ? [
-          { query: GET_HOME_BY_ID, variables: { id: selectedHomeId } },
-          { query: GET_HOMES },
-        ]
-      : [{ query: GET_HOMES }],
+    refetchQueries: refetchHomeQueries,
+    awaitRefetchQueries: true,
+  });
+
+  const [removeMember, removeMemberState] = useMutation(REMOVE_MEMBER_FROM_HOME, {
+    refetchQueries: refetchHomeQueries,
+    awaitRefetchQueries: true,
+  });
+
+  const [cancelInvite, cancelInviteState] = useMutation(CANCEL_HOME_INVITE, {
+    refetchQueries: refetchHomeQueries,
     awaitRefetchQueries: true,
   });
 
@@ -92,35 +107,26 @@ export function AppNavbar() {
   const home = homeQuery.data?.getHomeById ?? null;
   const categories = categoryQuery.data?.getCategoriesByHome ?? [];
   const viewerEmail = session?.user?.email?.toLowerCase() ?? "";
-  const isAdmin = !!home && home.owners.map((owner) => owner.toLowerCase()).includes(viewerEmail);
+  const isAdmin = !!home && home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
   const memberRows = useMemo(() => {
-    if (!home) {
-      return [] as Array<{ email: string; isAdmin: boolean }>;
-    }
-
+    if (!home) return [] as Array<{ email: string; isOwner: boolean }>;
     return home.members.map((email) => ({
       email,
-      isAdmin: home.owners.map((owner) => owner.toLowerCase()).includes(email.toLowerCase()),
+      isOwner: home.owners.map((o) => o.toLowerCase()).includes(email.toLowerCase()),
     }));
   }, [home]);
 
   useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-
+    if (!menuOpen) return;
     function handlePointerDown(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handlePointerDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-    };
+    return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [menuOpen]);
 
   if (pathname === "/login" || pathname === "/pending") {
@@ -133,14 +139,10 @@ export function AppNavbar() {
       dispatch(setGlobalError("Select a home before managing users."));
       return;
     }
-
     try {
       dispatch(setGlobalError(null));
       await inviteUser({
-        variables: {
-          homeId: selectedHomeId,
-          email: inviteEmail.trim().toLowerCase(),
-        },
+        variables: { homeId: selectedHomeId, email: inviteEmail.trim().toLowerCase() },
       });
       setInviteEmail("");
     } catch (error) {
@@ -149,10 +151,7 @@ export function AppNavbar() {
   }
 
   async function onPromote(email: string) {
-    if (!selectedHomeId) {
-      return;
-    }
-
+    if (!selectedHomeId) return;
     try {
       dispatch(setGlobalError(null));
       await promoteMember({ variables: { homeId: selectedHomeId, email } });
@@ -161,11 +160,28 @@ export function AppNavbar() {
     }
   }
 
-  async function onDeleteCategory() {
-    if (!deletingCategory) {
-      return;
+  async function onRemoveMember(email: string) {
+    if (!selectedHomeId) return;
+    try {
+      dispatch(setGlobalError(null));
+      await removeMember({ variables: { homeId: selectedHomeId, email } });
+    } catch (error) {
+      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to remove member"));
     }
+  }
 
+  async function onCancelInvite(email: string) {
+    if (!selectedHomeId) return;
+    try {
+      dispatch(setGlobalError(null));
+      await cancelInvite({ variables: { homeId: selectedHomeId, email } });
+    } catch (error) {
+      dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to cancel invite"));
+    }
+  }
+
+  async function onDeleteCategory() {
+    if (!deletingCategory) return;
     try {
       dispatch(setGlobalError(null));
       await deleteCategory({ variables: { categoryId: deletingCategory.id } });
@@ -174,6 +190,9 @@ export function AppNavbar() {
       dispatch(setGlobalError(error instanceof Error ? error.message : "Failed to delete category"));
     }
   }
+
+  const memberActionsDisabled =
+    promoteMemberState.loading || removeMemberState.loading;
 
   return (
     <>
@@ -205,7 +224,12 @@ export function AppNavbar() {
               <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-amber-100 ring-1 ring-amber-200">
                 {session?.user?.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={session.user.image} alt="User avatar" className="h-full w-full object-cover" />
+                  <img
+                    src={session.user.image}
+                    alt="User avatar"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <span className="text-xs font-bold text-amber-800">
                     {initials(session?.user?.name || session?.user?.email || "User")}
@@ -234,7 +258,7 @@ export function AppNavbar() {
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
                     >
                       <FiShield className="h-4 w-4 text-amber-600" />
-                      Approve Users
+                      Manage Users
                     </Link>
                   ) : null}
                   {selectedHomeId && isAdmin ? (
@@ -247,7 +271,7 @@ export function AppNavbar() {
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
                     >
                       <FiHome className="h-4 w-4 text-amber-600" />
-                      Manage Home
+                      Home Settings
                     </button>
                   ) : null}
                   <div className="my-1 h-px bg-[#e8d8c0]" />
@@ -266,6 +290,7 @@ export function AppNavbar() {
         </div>
       </header>
 
+      {/* ── Manage Home modal ── */}
       <Modal
         title="Manage Home"
         open={manageOpen}
@@ -282,39 +307,62 @@ export function AppNavbar() {
           <p className="text-sm text-[#78604a]">Home not found.</p>
         ) : (
           <div className="space-y-5">
+            {/* Home info */}
             <div className="rounded-xl border border-[#e8d8c0] bg-[#fef9f2] px-4 py-3">
               <p className="text-sm font-bold text-[#1a1208]">House {home.houseNo}</p>
               <p className="mt-0.5 text-xs text-[#78604a]">{home.address}</p>
             </div>
 
+            {/* Members */}
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">Members</p>
               <div className="space-y-2">
                 {memberRows.map((member) => (
                   <div
                     key={member.email}
-                    className="flex items-center justify-between rounded-xl border border-[#e8d8c0] bg-white/60 px-3 py-2.5"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#e8d8c0] bg-white/60 px-3 py-2.5"
                   >
-                    <div>
-                      <p className="text-sm font-medium text-[#1a1208]">{member.email}</p>
-                      <p className="text-xs text-[#78604a]">{member.isAdmin ? "Admin" : "Member"}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[#1a1208]">{member.email}</p>
+                      <p className="text-xs text-[#78604a]">{member.isOwner ? "Admin" : "Member"}</p>
                     </div>
-                    {!member.isAdmin && isAdmin ? (
-                      <button
-                        type="button"
-                        onClick={() => void onPromote(member.email)}
-                        disabled={promoteMemberState.loading}
-                        className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-                      >
-                        <FiShield className="h-3.5 w-3.5" />
-                        Make Admin
-                      </button>
+
+                    {isAdmin ? (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {/* Make Admin — only for non-admins */}
+                        {!member.isOwner ? (
+                          <button
+                            type="button"
+                            onClick={() => void onPromote(member.email)}
+                            disabled={memberActionsDisabled}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                          >
+                            <FiShield className="h-3.5 w-3.5" />
+                            Make Admin
+                          </button>
+                        ) : null}
+
+                        {/* Remove — only for non-admin members who are not yourself */}
+                        {!member.isOwner && member.email.toLowerCase() !== viewerEmail ? (
+                          <button
+                            type="button"
+                            onClick={() => void onRemoveMember(member.email)}
+                            disabled={memberActionsDisabled}
+                            title="Remove member"
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
+                          >
+                            <FiUserMinus className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 ))}
               </div>
             </div>
 
+            {/* Categories */}
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-[#78604a]">Categories</p>
@@ -355,6 +403,7 @@ export function AppNavbar() {
               )}
             </div>
 
+            {/* Invite user */}
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#78604a]">Invite User</p>
               <form className="flex gap-2" onSubmit={(event) => void onInviteSubmit(event)}>
@@ -381,16 +430,36 @@ export function AppNavbar() {
               ) : null}
             </div>
 
+            {/* Pending invites */}
             {home.pendingInvites.length > 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-amber-700">Pending Invites</p>
-                <p className="text-xs text-amber-800">{home.pendingInvites.join(", ")}</p>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">Pending Invites</p>
+                <div className="space-y-2">
+                  {home.pendingInvites.map((email) => (
+                    <div key={email} className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-amber-900">{email}</p>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => void onCancelInvite(email)}
+                          disabled={cancelInviteState.loading}
+                          title="Cancel invite"
+                          className="flex shrink-0 items-center gap-1 rounded-lg border border-amber-300 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-red-50 hover:border-red-200 hover:text-red-700 disabled:opacity-60"
+                        >
+                          <FiX className="h-3.5 w-3.5" />
+                          Cancel
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>
         )}
       </Modal>
 
+      {/* ── Edit category modal ── */}
       <Modal title="Edit Category" open={!!editingCategory} onClose={() => setEditingCategory(null)}>
         {editingCategory ? (
           <EditCategoryForm
@@ -404,6 +473,7 @@ export function AppNavbar() {
         ) : null}
       </Modal>
 
+      {/* ── Delete category confirm ── */}
       <ConfirmActionDialog
         open={!!deletingCategory}
         title="Delete Category"

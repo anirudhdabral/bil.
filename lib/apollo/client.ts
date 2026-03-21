@@ -150,6 +150,20 @@ function createUploadLink(): ApolloLink {
           return (await response.json()) as FetchResult;
         })
         .then((result) => {
+          if (isMutation && result.data && !result.errors) {
+            // After any successful mutation, purge all Apollo cookie-cache entries
+            // so that refetchQueries always fetch fresh data from the server.
+            if (typeof document !== "undefined") {
+              const cookieNames = document.cookie
+                .split(";")
+                .map((entry) => entry.split("=")[0]?.trim())
+                .filter((name): name is string => !!name && name.startsWith("apc_"));
+              cookieNames.forEach((name) => {
+                document.cookie = `${name}=;Max-Age=0;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax`;
+              });
+            }
+          }
+
           // Only cache queries that succeeded and didn't have errors
           if (!isMutation && result.data && !result.errors) {
             try {
