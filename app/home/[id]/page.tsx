@@ -36,7 +36,6 @@ import {
   setAddBillOpen,
   setAddCategoryOpen,
   setGlobalError,
-  setInviteUserOpen,
 } from "../../../lib/redux/slices/uiSlice";
 
 export default function HomeDetailsPage() {
@@ -44,30 +43,40 @@ export default function HomeDetailsPage() {
   const apolloClient = useApolloClient();
   const params = useParams<{ id: string }>();
   const homeId = params.id;
-  const { data: session } = useSession();
   const now = useMemo(() => new Date(), []);
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    now.getMonth() + 1,
+  );
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
-  const isAddCategoryOpen = useAppSelector((state) => state.ui.isAddCategoryOpen);
+  const isAddCategoryOpen = useAppSelector(
+    (state) => state.ui.isAddCategoryOpen,
+  );
   const isAddBillOpen = useAppSelector((state) => state.ui.isAddBillOpen);
-  const isInviteUserOpen = useAppSelector((state) => state.ui.isInviteUserOpen);
 
   const homeQuery = useQuery<{ getHomeById: Home | null }>(GET_HOME_BY_ID, {
     variables: { id: homeId },
     fetchPolicy: "cache-and-network",
   });
-  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(GET_CATEGORIES_BY_HOME, {
-    variables: { homeId },
-    fetchPolicy: "cache-and-network",
-  });
-  const categories = useMemo(() => categoryQuery.data?.getCategoriesByHome ?? [], [categoryQuery.data?.getCategoriesByHome]);
+  const categoryQuery = useQuery<{ getCategoriesByHome: BillCategory[] }>(
+    GET_CATEGORIES_BY_HOME,
+    {
+      variables: { homeId },
+      fetchPolicy: "cache-and-network",
+    },
+  );
+  const categories = useMemo(
+    () => categoryQuery.data?.getCategoriesByHome ?? [],
+    [categoryQuery.data?.getCategoriesByHome],
+  );
 
   const effectiveCategoryId = useMemo(() => {
     if (!selectedCategoryId) return "";
-    return categories.some((category) => category.id === selectedCategoryId) ? selectedCategoryId : "";
+    return categories.some((category) => category.id === selectedCategoryId)
+      ? selectedCategoryId
+      : "";
   }, [categories, selectedCategoryId]);
 
   const billsQuery = useQuery<{ getBillsByHome: Bill[] }>(GET_BILLS_BY_HOME, {
@@ -75,11 +84,18 @@ export default function HomeDetailsPage() {
     skip: !!effectiveCategoryId,
     fetchPolicy: "cache-and-network",
   });
-  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(GET_BILLS_BY_CATEGORY, {
-    variables: { categoryId: effectiveCategoryId, month: selectedMonth, year: selectedYear },
-    skip: !effectiveCategoryId,
-    fetchPolicy: "cache-and-network",
-  });
+  const billsByCategoryQuery = useQuery<{ getBillsByCategory: Bill[] }>(
+    GET_BILLS_BY_CATEGORY,
+    {
+      variables: {
+        categoryId: effectiveCategoryId,
+        month: selectedMonth,
+        year: selectedYear,
+      },
+      skip: !effectiveCategoryId,
+      fetchPolicy: "cache-and-network",
+    },
+  );
 
   const manualRefetch = async () => {
     // Evict all bill cache entries for the current month/year so every
@@ -91,7 +107,11 @@ export default function HomeDetailsPage() {
     for (const category of categories) {
       apolloClient.cache.evict({
         fieldName: "getBillsByCategory",
-        args: { categoryId: category.id, month: selectedMonth, year: selectedYear },
+        args: {
+          categoryId: category.id,
+          month: selectedMonth,
+          year: selectedYear,
+        },
       });
     }
     apolloClient.cache.gc();
@@ -100,8 +120,16 @@ export default function HomeDetailsPage() {
       homeQuery.refetch(),
       categoryQuery.refetch(),
       effectiveCategoryId
-        ? billsByCategoryQuery.refetch({ categoryId: effectiveCategoryId, month: selectedMonth, year: selectedYear })
-        : billsQuery.refetch({ homeId, month: selectedMonth, year: selectedYear }),
+        ? billsByCategoryQuery.refetch({
+            categoryId: effectiveCategoryId,
+            month: selectedMonth,
+            year: selectedYear,
+          })
+        : billsQuery.refetch({
+            homeId,
+            month: selectedMonth,
+            year: selectedYear,
+          }),
     ]);
   };
 
@@ -110,20 +138,31 @@ export default function HomeDetailsPage() {
     const raw = effectiveCategoryId
       ? (billsByCategoryQuery.data?.getBillsByCategory ?? [])
       : (billsQuery.data?.getBillsByHome ?? []);
-    return [...raw].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [effectiveCategoryId, billsByCategoryQuery.data?.getBillsByCategory, billsQuery.data?.getBillsByHome]);
+    return [...raw].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+  }, [
+    effectiveCategoryId,
+    billsByCategoryQuery.data?.getBillsByCategory,
+    billsQuery.data?.getBillsByHome,
+  ]);
 
-  const viewerEmail = session?.user?.email?.toLowerCase();
-  const isOwner = !!home && !!viewerEmail && home.owners.map((owner) => owner.toLowerCase()).includes(viewerEmail);
   // Only show the full-page spinner when there is genuinely no data yet (first load).
   // With cache-and-network, background re-fetches also set loading=true — we don't
   // want to hide the UI for those since cached data is already on screen.
   const initialLoading = homeQuery.loading && !home;
   const billsHaveNoData = effectiveCategoryId
-    ? !billsByCategoryQuery.data && billsByCategoryQuery.networkStatus !== NetworkStatus.ready
+    ? !billsByCategoryQuery.data &&
+      billsByCategoryQuery.networkStatus !== NetworkStatus.ready
     : !billsQuery.data && billsQuery.networkStatus !== NetworkStatus.ready;
   const categoriesHaveNoData = !categoryQuery.data;
-  const loading = initialLoading || categoriesHaveNoData || (billsHaveNoData && (effectiveCategoryId ? billsByCategoryQuery.loading : billsQuery.loading));
+  const loading =
+    initialLoading ||
+    categoriesHaveNoData ||
+    (billsHaveNoData &&
+      (effectiveCategoryId
+        ? billsByCategoryQuery.loading
+        : billsQuery.loading));
 
   const errorMessage =
     homeQuery.error?.message ||
@@ -153,8 +192,12 @@ export default function HomeDetailsPage() {
             </Link>
             {home ? (
               <div className="min-w-0">
-                <p className="truncate text-lg font-black text-[#1a1208]">{home.houseNo}</p>
-                <p className="truncate text-xs text-[#b8926a]">{home.address}</p>
+                <p className="truncate text-lg font-black text-[#1a1208]">
+                  {home.houseNo}
+                </p>
+                <p className="truncate text-xs text-[#b8926a]">
+                  {home.address}
+                </p>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-[#78604a]">
@@ -166,31 +209,7 @@ export default function HomeDetailsPage() {
 
           <div className="flex shrink-0 items-center gap-2">
             <RefetchButton refetch={manualRefetch} />
-            <button
-              onClick={() => setShowMonthPicker(true)}
-              className="flex h-9 items-center gap-2 rounded-full border border-[#e8d8c0] bg-white px-4 text-[#78604a] transition hover:border-amber-400 hover:bg-amber-50 active:scale-95 group"
-            >
-              <FiCalendar className="h-4 w-4 shrink-0 text-amber-500 transition-transform group-hover:scale-110" />
-              <span className="text-sm font-bold">
-                {selectedMonth === 0
-                  ? "All Time"
-                  : new Date(selectedYear, selectedMonth - 1).toLocaleString("default", {
-                      month: "short",
-                      year: "numeric",
-                    })}
-              </span>
-            </button>
-            {isOwner ? (
-              <button
-                type="button"
-                id="invite-user-btn"
-                onClick={() => dispatch(setInviteUserOpen(true))}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e8d8c0] bg-white text-amber-600 transition hover:border-amber-300 hover:bg-amber-50"
-                title="Invite User"
-              >
-                <FiUserPlus className="h-4 w-4" />
-              </button>
-            ) : null}
+
             <button
               type="button"
               id="add-bill-btn"
@@ -214,54 +233,81 @@ export default function HomeDetailsPage() {
       ) : (
         <div className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6">
           <div className="mb-6">
-            <div
-              className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
-              style={{ msOverflowStyle: "none" }}
-            >
-              <button
-                type="button"
-                onClick={() => setSelectedCategoryId("")}
-                className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                  !effectiveCategoryId
-                    ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
-                    : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
-                }`}
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] mask-[linear-gradient(to_right,black_85%,transparent_100%)] mask-size-[200%_100%] mask-no-repeat animate-[mask-fade_linear_both] [animation-timeline:scroll(x_self)]"
+                style={{ msOverflowStyle: "none" }}
               >
-                All
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryId("")}
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
+                    !effectiveCategoryId
+                      ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
+                      : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
+                  }`}
+                >
+                  All
+                </button>
 
-              {categories.map((category) => {
-                const isSelected = effectiveCategoryId === category.id;
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setSelectedCategoryId(category.id)}
-                    className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                      isSelected
-                        ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
-                        : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
-                    }`}
-                  >
-                    {category.name}
-                  </button>
-                );
-              })}
+                {categories.map((category) => {
+                  const isSelected = effectiveCategoryId === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(category.id)}
+                      className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
+                        isSelected
+                          ? "border-amber-400 bg-amber-400 text-[#1a1208] shadow-sm"
+                          : "border-[#e8d8c0] bg-white text-[#78604a] hover:border-amber-200 hover:bg-amber-50"
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  id="add-category-btn"
+                  onClick={() => dispatch(setAddCategoryOpen(true))}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#e8d8c0] bg-[#fef9f2] px-3 py-1.5 text-sm font-semibold text-[#b8926a] transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                >
+                  <FiFolderPlus className="h-4 w-4" />
+                  Add
+                </button>
+              </div>
+              <div className="flex gap-2 mb-1 items-center">
+                {categories.length > 1 && (
+                  <div className="mx-1 h-5 w-px sm:w-0 shrink-0 bg-[#e8d8c0]" />
+                )}
 
-              {categories.length > 0 ? <div className="mx-1 h-5 w-px shrink-0 bg-[#e8d8c0]" /> : null}
-              <button
-                type="button"
-                id="add-category-btn"
-                onClick={() => dispatch(setAddCategoryOpen(true))}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#e8d8c0] bg-[#fef9f2] px-3 py-1.5 text-sm font-semibold text-[#b8926a] transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
-              >
-                <FiFolderPlus className="h-4 w-4" />
-                Add
-              </button>
+                <button
+                  onClick={() => setShowMonthPicker(true)}
+                  className="flex py-1.5 items-center gap-2 rounded-full border border-[#e8d8c0] bg-white px-4 text-[#78604a] transition hover:border-amber-400 hover:bg-amber-50 active:scale-95 group w-fit"
+                >
+                  <FiCalendar className="h-4 w-4  text-amber-500 transition-transform group-hover:scale-110" />
+                  <span className="text-sm font-bold whitespace-nowrap">
+                    {selectedMonth === 0
+                      ? "All Time"
+                      : new Date(
+                          selectedYear,
+                          selectedMonth - 1,
+                        ).toLocaleString("default", {
+                          month: "short",
+                          year: "numeric",
+                        })}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <BillList bills={bills} categories={categories} onBillsChanged={manualRefetch} />
+          <BillList
+            bills={bills}
+            categories={categories}
+            onBillsChanged={manualRefetch}
+          />
         </div>
       )}
 
@@ -301,17 +347,10 @@ export default function HomeDetailsPage() {
       </Modal>
 
       <Modal
-        title="Invite User"
-        open={isInviteUserOpen}
-        onClose={() => {
-          dispatch(setInviteUserOpen(false));
-          dispatch(setGlobalError(null));
-        }}
+        title="Select Month & Year"
+        open={showMonthPicker}
+        onClose={() => setShowMonthPicker(false)}
       >
-        <AddInviteForm homeId={homeId} onSuccess={() => dispatch(setInviteUserOpen(false))} />
-      </Modal>
-
-      <Modal title="Select Month & Year" open={showMonthPicker} onClose={() => setShowMonthPicker(false)}>
         <div className="p-2">
           <div className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 p-2">
             <button
@@ -320,7 +359,9 @@ export default function HomeDetailsPage() {
             >
               <FiChevronLeft className="h-6 w-6" />
             </button>
-            <span className="text-xl font-black text-[#1a1208]">{selectedYear}</span>
+            <span className="text-xl font-black text-[#1a1208]">
+              {selectedYear}
+            </span>
             <button
               onClick={() => setSelectedYear(selectedYear + 1)}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-100 bg-white text-amber-600 shadow-sm transition hover:bg-amber-400 hover:text-white"

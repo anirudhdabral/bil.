@@ -77,3 +77,9 @@ body {
   outline: 2px solid var(--amber-primary);
   outline-offset: 2px;
 }
+
+@keyframes mask-fade {
+  0% { mask-position: 100% 0%; }
+  80% { mask-position: 90% 0%; }
+  100% { mask-position: 0% 0%; }
+}
