@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useApolloClient } from "@apollo/client/react";
 import { NetworkStatus } from "@apollo/client";
+import { useApolloClient, useQuery } from "@apollo/client/react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -13,14 +13,15 @@ import {
   FiChevronRight,
   FiFileText,
   FiFolderPlus,
-  FiUserPlus,
 } from "react-icons/fi";
-
+import { FaGear } from "react-icons/fa6";
+import { RiHomeGearFill } from "react-icons/ri";
+import { motion } from "framer-motion";
 import { AddBillForm } from "../../../components/forms/AddBillForm";
 import { AddCategoryForm } from "../../../components/forms/AddCategoryForm";
-import { AddInviteForm } from "../../../components/forms/AddInviteForm";
 import { BillList } from "../../../components/lists/BillList";
 import { LoadingSpinner } from "../../../components/ui/LoadingSpinner";
+import { ManageHomeModal } from "../../../components/ui/ManageHomeModal";
 import { Modal } from "../../../components/ui/Modal";
 import { RefetchButton } from "../../../components/ui/RefetchButton";
 import {
@@ -41,6 +42,7 @@ import {
 export default function HomeDetailsPage() {
   const dispatch = useAppDispatch();
   const apolloClient = useApolloClient();
+  const { data: session } = useSession();
   const params = useParams<{ id: string }>();
   const homeId = params.id;
   const now = useMemo(() => new Date(), []);
@@ -50,6 +52,7 @@ export default function HomeDetailsPage() {
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const isAddCategoryOpen = useAppSelector(
     (state) => state.ui.isAddCategoryOpen,
@@ -147,6 +150,10 @@ export default function HomeDetailsPage() {
     billsQuery.data?.getBillsByHome,
   ]);
 
+  const viewerEmail = session?.user?.email?.toLowerCase() ?? "";
+  const isAdmin =
+    !!home && home.owners.map((o) => o.toLowerCase()).includes(viewerEmail);
+
   // Only show the full-page spinner when there is genuinely no data yet (first load).
   // With cache-and-network, background re-fetches also set loading=true — we don't
   // want to hide the UI for those since cached data is already on screen.
@@ -210,10 +217,27 @@ export default function HomeDetailsPage() {
           <div className="flex shrink-0 items-center gap-2">
             <RefetchButton refetch={manualRefetch} />
 
+            {isAdmin && (
+              <motion.button
+                whileHover={{
+                  scale: 1.1,
+                  backgroundColor: "rgba(251, 191, 36, 0.1)",
+                }}
+                whileTap={{ scale: 0.9 }}
+                type="button"
+                onClick={() => setManageOpen(true)}
+                className={`inline-flex items-center justify-center rounded-full p-2 text-[#78604a] transition-colors hover:text-amber-700 disabled:opacity-50 `}
+                title="Settings"
+              >
+                <FaGear className="h-4 w-4" />
+              </motion.button>
+            )}
+
             <button
               type="button"
               id="add-bill-btn"
               onClick={() => dispatch(setAddBillOpen(true))}
+              disabled={!home}
               className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-2.5 text-xs font-bold text-[#1a1208] shadow-sm transition hover:bg-amber-500 active:scale-95"
             >
               <FiFileText className="h-3.5 w-3.5" />
@@ -416,6 +440,18 @@ export default function HomeDetailsPage() {
           </div>
         </div>
       </Modal>
+
+      {home ? (
+        <ManageHomeModal
+          open={manageOpen}
+          onClose={() => setManageOpen(false)}
+          homeId={homeId}
+          home={home}
+          categories={categories}
+          isAdmin={isAdmin}
+          onSuccess={manualRefetch}
+        />
+      ) : null}
     </main>
   );
 }

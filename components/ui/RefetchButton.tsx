@@ -33,7 +33,7 @@ export function RefetchButton({ refetch, className = "", size = 16 }: RefetchBut
       type="button"
       onClick={handleRefetch}
       disabled={loading}
-      className={`inline-flex items-center justify-center rounded-lg p-2 text-[#78604a] transition-colors hover:text-amber-700 disabled:opacity-50 ${className}`}
+      className={`inline-flex items-center justify-center rounded-full p-2 text-[#78604a] transition-colors hover:text-amber-700 disabled:opacity-50 ${className}`}
       title="Refetch"
     >
       <motion.div

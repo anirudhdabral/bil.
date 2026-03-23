@@ -5,6 +5,7 @@ type ConfirmActionDialogProps = {
   title: string;
   message: string;
   confirmLabel?: string;
+  loadingLabel?: string;
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
@@ -17,6 +18,7 @@ export function ConfirmActionDialog({
   title,
   message,
   confirmLabel = "Delete",
+  loadingLabel = "Processing...",
   loading = false,
   onConfirm,
   onCancel,
@@ -39,7 +41,7 @@ export function ConfirmActionDialog({
             disabled={loading}
             className="rounded-2xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 disabled:opacity-60"
           >
-            {loading ? "Deleting..." : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>
