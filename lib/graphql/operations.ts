@@ -9,6 +9,7 @@ export const GET_HOMES = gql`
       owners
       members
       pendingInvites
+      pendingDeletion
     }
   }
 `;
@@ -22,6 +23,7 @@ export const GET_PENDING_HOME_INVITES = gql`
       owners
       members
       pendingInvites
+      pendingDeletion
     }
   }
 `;
@@ -35,7 +37,40 @@ export const GET_HOME_BY_ID = gql`
       owners
       members
       pendingInvites
+      pendingDeletion
     }
+  }
+`;
+
+export const GET_DELETE_HOME_REQUESTS = gql`
+  query GetDeleteHomeRequests {
+    getDeleteHomeRequests {
+      id
+      houseNo
+      address
+      owners
+      members
+      pendingDeletion
+      updatedAt
+    }
+  }
+`;
+
+export const REQUEST_DELETE_HOME = gql`
+  mutation RequestDeleteHome($homeId: ID!) {
+    requestDeleteHome(homeId: $homeId)
+  }
+`;
+
+export const APPROVE_DELETE_HOME = gql`
+  mutation ApproveDeleteHome($homeId: ID!) {
+    approveDeleteHome(homeId: $homeId)
+  }
+`;
+
+export const REJECT_DELETE_HOME = gql`
+  mutation RejectDeleteHome($homeId: ID!) {
+    rejectDeleteHome(homeId: $homeId)
   }
 `;
 

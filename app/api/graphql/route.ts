@@ -174,6 +174,7 @@ async function createGraphQLResponse(request: Request): Promise<Response> {
       await connectToDatabase();
       return {
         currentUserEmail: currentUser?.email?.toLowerCase() ?? null,
+        currentUserRole: currentUser?.role ?? null,
       };
     },
   });

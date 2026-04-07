@@ -4,12 +4,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import {
-  FiChevronDown,
-  FiLogOut,
-  FiShield,
-  FiUser,
-} from "react-icons/fi";
+import { FiChevronDown, FiLogOut, FiShield, FiUser } from "react-icons/fi";
 
 import { logoutAndClearSession } from "../../lib/logout";
 
@@ -25,7 +20,7 @@ function initials(nameOrEmail: string): string {
 
 export function AppNavbar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,6 +86,7 @@ export function AppNavbar() {
           <div ref={menuRef} className="relative">
             <button
               type="button"
+              disabled={status === "loading"}
               onClick={() => setMenuOpen((prev) => !prev)}
               className="flex items-center gap-1.5 rounded-full border border-[#e8d8c0] bg-[#fef9f2] px-1.5 py-1 shadow-sm transition hover:border-amber-300 hover:shadow"
               aria-label="User menu"
@@ -143,7 +139,7 @@ export function AppNavbar() {
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[#1a1208] transition hover:bg-amber-50"
                     >
                       <FiShield className="h-4 w-4 text-amber-600" />
-                      Manage Users
+                      Master Console
                     </Link>
                   ) : null}
                   {isSuperAdmin && <div className="my-1 h-px bg-[#e8d8c0]" />}

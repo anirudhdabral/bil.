@@ -10,6 +10,7 @@ export const typeDefs = `#graphql
     pendingInvites: [String!]!
     categories: [BillCategory!]!
     bills: [Bill!]!
+    pendingDeletion: Boolean
     createdAt: String
     updatedAt: String
   }
@@ -38,6 +39,7 @@ export const typeDefs = `#graphql
     getHomes: [Home!]!
     getPendingHomeInvites: [Home!]!
     getHomeById(id: ID!): Home
+    getDeleteHomeRequests: [Home!]!
     getCategoriesByHome(homeId: ID!): [BillCategory!]!
     getBillsByHome(homeId: ID!, month: Int, year: Int): [Bill!]!
     getBillsByCategory(categoryId: ID!, month: Int, year: Int): [Bill!]!
@@ -46,6 +48,9 @@ export const typeDefs = `#graphql
   type Mutation {
     createHome(houseNo: String!, address: String!): Home!
     updateHome(homeId: ID!, houseNo: String!, address: String!): Home!
+    requestDeleteHome(homeId: ID!): Boolean!
+    approveDeleteHome(homeId: ID!): Boolean!
+    rejectDeleteHome(homeId: ID!): Boolean!
     createCategory(name: String!, homeId: ID!): BillCategory!
     updateCategory(categoryId: ID!, name: String!): BillCategory!
     deleteCategory(categoryId: ID!): Boolean!

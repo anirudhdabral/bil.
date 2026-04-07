@@ -1,15 +1,21 @@
 "use client";
 
+import { useMutation, useQuery } from "@apollo/client/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FiCheck, FiShield, FiSlash } from "react-icons/fi";
-
+import { FiCheck, FiShield, FiSlash, FiTrash2, FiX } from "react-icons/fi";
+import { ConfirmActionDialog } from "../../components/ui/ConfirmActionDialog";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { RefetchButton } from "../../components/ui/RefetchButton";
-import { ConfirmActionDialog } from "../../components/ui/ConfirmActionDialog";
 import { getCookie, setCookie } from "../../lib/cookies";
+import {
+  APPROVE_DELETE_HOME,
+  GET_DELETE_HOME_REQUESTS,
+  REJECT_DELETE_HOME,
+} from "../../lib/graphql/operations";
+import type { Home } from "../../lib/graphql/types";
 
 type AdminUser = {
   _id: string;
@@ -36,6 +42,27 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [revokingUser, setRevokingUser] = useState<AdminUser | null>(null);
+
+  const [confirmingApproveHome, setConfirmingApproveHome] =
+    useState<Home | null>(null);
+  const [confirmingRejectHome, setConfirmingRejectHome] = useState<Home | null>(
+    null,
+  );
+
+  const {
+    data: deletionRequestsData,
+    loading: loadingDeletions,
+    refetch: refetchDeletions,
+  } = useQuery<{ getDeleteHomeRequests: Home[] }>(GET_DELETE_HOME_REQUESTS, {
+    skip: status !== "authenticated" || session?.user?.role !== "SUPER_ADMIN",
+  });
+
+  const [approveDeleteHome, approveDeleteHomeState] =
+    useMutation(APPROVE_DELETE_HOME);
+  const [rejectDeleteHome, rejectDeleteHomeState] =
+    useMutation(REJECT_DELETE_HOME);
+
+  const deletionRequests = deletionRequestsData?.getDeleteHomeRequests ?? [];
 
   const pendingUsers = useMemo(
     () => users.filter((user) => !user.approved),
@@ -83,6 +110,10 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadUsers(true), refetchDeletions()]);
+  }, [loadUsers, refetchDeletions]);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role !== "SUPER_ADMIN") {
@@ -142,6 +173,36 @@ export default function AdminPage() {
     }
   }
 
+  async function handleApproveHome(homeId: string) {
+    try {
+      await approveDeleteHome({ variables: { homeId } });
+      void refetchDeletions();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to approve home deletion",
+      );
+    } finally {
+      setConfirmingApproveHome(null);
+    }
+  }
+
+  async function handleRejectHome(homeId: string) {
+    try {
+      await rejectDeleteHome({ variables: { homeId } });
+      void refetchDeletions();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to reject home deletion",
+      );
+    } finally {
+      setConfirmingRejectHome(null);
+    }
+  }
+
   if (
     status === "loading" ||
     (status === "authenticated" &&
@@ -180,10 +241,10 @@ export default function AdminPage() {
         >
           <h1 className="flex items-center gap-3 text-2xl font-black text-[#1a1208] sm:text-3xl">
             <FiShield className="h-7 w-7 text-amber-600" />
-            User Access Control
+            Master Console
           </h1>
 
-          <RefetchButton refetch={() => loadUsers(true)} size={24} />
+          <RefetchButton refetch={refreshAll} size={24} />
         </motion.header>
 
         {error ? (
@@ -226,6 +287,64 @@ export default function AdminPage() {
             </p>
           </div>
         </div>
+
+        {deletionRequests.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 rounded-3xl border border-red-100 bg-white/90 shadow-sm shadow-red-900/5 overflow-hidden"
+          >
+            <div className="border-b border-red-100 bg-red-50/50 px-6 py-4">
+              <h2 className="flex items-center gap-2 text-base font-bold text-red-900">
+                <FiTrash2 className="h-4 w-4" />
+                Home Deletion Requests
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="space-y-3">
+                {deletionRequests.map((home) => (
+                  <motion.div
+                    key={home.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex flex-col gap-3 rounded-2xl border border-red-50 bg-[#fffbfc] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-[#1a1208]">
+                        {home.houseNo}
+                      </p>
+                      <p className="text-xs text-[#78604a]">{home.address}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-wider font-bold text-red-600">
+                        Pending Deletion
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingRejectHome(home)}
+                        disabled={rejectDeleteHomeState.loading}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e8d8c0] bg-white px-3 py-2 text-xs font-semibold text-[#78604a] transition hover:bg-gray-50"
+                      >
+                        <FiX className="h-3.5 w-3.5" />
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingApproveHome(home)}
+                        disabled={approveDeleteHomeState.loading}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 shadow-sm"
+                      >
+                        <FiTrash2 className="h-3.5 w-3.5" />
+                        Approve Deletion
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.section>
+        )}
 
         <motion.section
           initial={{ opacity: 0, y: 10 }}
@@ -292,13 +411,12 @@ export default function AdminPage() {
                                   : "rounded-full bg-[#eef2f7] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#556070]"
                               }
                             >
-                              {isSuperAdmin ? "Super Admin" : "User"}
+                              {isSuperAdmin && "Super Admin"}
                             </span>
                           </div>
                           <p className="mt-0.5 text-sm text-[#78604a]">
                             {user.email}
                           </p>
-                          
                         </div>
 
                         {isSuperAdmin ? null : user.approved ? (
@@ -350,6 +468,36 @@ export default function AdminPage() {
           if (revokingUser) {
             await updateUserAccess(revokingUser._id, false);
             setRevokingUser(null);
+          }
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={!!confirmingApproveHome}
+        title="Approve Deletion"
+        message={`Are you sure you want to permanently delete home "${confirmingApproveHome?.houseNo}"? All categories and bills will be purged.`}
+        confirmLabel="Approve & Delete"
+        loadingLabel="Deleting..."
+        loading={approveDeleteHomeState.loading}
+        onCancel={() => setConfirmingApproveHome(null)}
+        onConfirm={async () => {
+          if (confirmingApproveHome) {
+            await handleApproveHome(confirmingApproveHome.id);
+          }
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={!!confirmingRejectHome}
+        title="Reject Deletion"
+        message={`Reject deletion request for "${confirmingRejectHome?.houseNo}"?`}
+        confirmLabel="Reject Request"
+        loadingLabel="Rejecting..."
+        loading={rejectDeleteHomeState.loading}
+        onCancel={() => setConfirmingRejectHome(null)}
+        onConfirm={async () => {
+          if (confirmingRejectHome) {
+            await handleRejectHome(confirmingRejectHome.id);
           }
         }}
       />

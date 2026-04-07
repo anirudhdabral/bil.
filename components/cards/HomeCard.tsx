@@ -20,7 +20,14 @@ export function HomeCard({ home, onSelect }: HomeCardProps) {
       <span className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-linear-to-b from-amber-400 to-amber-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
       <p className="text-xs font-bold uppercase tracking-widest text-[#b8926a]">House No.</p>
-      <h3 className="mt-1 text-xl font-black text-[#1a1208]">{home.houseNo}</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="mt-1 text-xl font-black text-[#1a1208]">{home.houseNo}</h3>
+        {home.pendingDeletion && (
+          <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600 border border-red-100">
+            Pending Deletion
+          </span>
+        )}
+      </div>
       <p className="mt-2 text-sm text-[#78604a] leading-relaxed">{home.address}</p>
 
       {/* Arrow indicator */}

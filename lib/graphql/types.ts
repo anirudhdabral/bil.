@@ -5,6 +5,8 @@ export type Home = {
   owners: string[];
   members: string[];
   pendingInvites: string[];
+  pendingDeletion?: boolean;
+  updatedAt?: string;
 };
 
 export type BillCategory = {

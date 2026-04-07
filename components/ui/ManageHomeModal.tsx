@@ -22,6 +22,7 @@ import {
   INVITE_USER_TO_HOME,
   PROMOTE_HOME_MEMBER_TO_ADMIN,
   REMOVE_MEMBER_FROM_HOME,
+  REQUEST_DELETE_HOME,
   UPDATE_HOME,
 } from "../../lib/graphql/operations";
 import type { BillCategory, Home } from "../../lib/graphql/types";
@@ -67,6 +68,7 @@ export function ManageHomeModal({
   const [promotingMember, setPromotingMember] = useState<string | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [cancelingInvite, setCancelingInvite] = useState<string | null>(null);
+  const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -127,6 +129,14 @@ export function ManageHomeModal({
       : [],
     awaitRefetchQueries: true,
   });
+
+  const [requestDeleteHome, requestDeleteHomeState] = useMutation(
+    REQUEST_DELETE_HOME,
+    {
+      refetchQueries: refetchHomeQueries,
+      awaitRefetchQueries: true,
+    },
+  );
 
   const memberRows = useMemo(() => {
     if (!home) return [] as Array<{ email: string; isOwner: boolean }>;
@@ -255,6 +265,23 @@ export function ManageHomeModal({
       dispatch(
         setGlobalError(
           error instanceof Error ? error.message : "Failed to delete category",
+        ),
+      );
+    }
+  }
+
+  async function onRequestDeleteHome() {
+    if (!selectedHomeId) return;
+    try {
+      dispatch(setGlobalError(null));
+      await requestDeleteHome({ variables: { homeId: selectedHomeId } });
+      setIsRequestingDeletion(false);
+      void onSuccess();
+      onClose();
+    } catch (error) {
+      dispatch(
+        setGlobalError(
+          error instanceof Error ? error.message : "Failed to request home deletion",
         ),
       );
     }
@@ -487,6 +514,40 @@ export function ManageHomeModal({
               </div>
             </div>
           ) : null}
+
+          {isAdmin ? (
+            <div className="pt-4 border-t border-[#e8d8c0]">
+              {home.pendingDeletion ? (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                  <p className="text-sm font-semibold text-amber-800">
+                    Deletion Request Pending
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    A request to delete this home has been submitted and is currently awaiting Super Admin approval.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-[#1a1208]">Danger Zone</p>
+                      <p className="text-xs text-[#78604a]">
+                        Request to permanently delete this home and all its data.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsRequestingDeletion(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                    >
+                      <FiTrash2 className="h-4 w-4" />
+                      Delete Home
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </Modal>
 
@@ -557,6 +618,16 @@ export function ManageHomeModal({
             void onCancelInvite(cancelingInvite);
           }
         }}
+      />
+      <ConfirmActionDialog
+        open={isRequestingDeletion}
+        title="Delete Home?"
+        message="This will request the Super Admin to permanently delete this home, all its categories, and all bills. This action cannot be undone once approved."
+        confirmLabel="Request Deletion"
+        loadingLabel="Requesting..."
+        loading={requestDeleteHomeState.loading}
+        onCancel={() => setIsRequestingDeletion(false)}
+        onConfirm={() => void onRequestDeleteHome()}
       />
     </>
   );

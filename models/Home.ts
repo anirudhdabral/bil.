@@ -34,6 +34,10 @@ const homeSchema = new Schema(
       type: [String],
       default: [],
     },
+    pendingDeletion: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

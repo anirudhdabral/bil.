@@ -8,6 +8,7 @@ import Home from "../models/Home";
 
 type GraphQLContext = {
   currentUserEmail: string | null;
+  currentUserRole: string | null;
 };
 
 type HomeAccessShape = {
@@ -205,7 +206,20 @@ export const resolvers = {
     getPendingHomeInvites: async (_parent: unknown, _args: unknown, context: GraphQLContext) => {
       try {
         const userEmail = requireUserEmail(context);
-        return await Home.find({ pendingInvites: userEmail }).sort({ createdAt: -1 });
+        return await Home.find({ pendingInvites: userEmail, pendingDeletion: { $ne: true } }).sort({ createdAt: -1 });
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
+    getDeleteHomeRequests: async (_parent: unknown, _args: unknown, context: GraphQLContext) => {
+      try {
+        if (context.currentUserRole !== "SUPER_ADMIN") {
+          throw new GraphQLError("Only Super Admin can view deletion requests", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+        return await Home.find({ pendingDeletion: true }).sort({ updatedAt: -1 });
       } catch (error) {
         throwInternalError(error);
       }
@@ -362,6 +376,86 @@ export const resolvers = {
         home.address = address;
         await home.save();
         return home;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
+    requestDeleteHome: async (_parent: unknown, args: { homeId: string }, context: GraphQLContext) => {
+      try {
+        const userEmail = requireUserEmail(context);
+        assertObjectId(args.homeId, "homeId");
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        const owners = getHomeOwners(home);
+        if (!owners.includes(userEmail)) {
+          throw new GraphQLError("Only home owner can request deletion", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+
+        home.pendingDeletion = true;
+        await home.save();
+        return true;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
+    approveDeleteHome: async (_parent: unknown, args: { homeId: string }, context: GraphQLContext) => {
+      try {
+        if (context.currentUserRole !== "SUPER_ADMIN") {
+          throw new GraphQLError("Only Super Admin can approve deletion", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+        assertObjectId(args.homeId, "homeId");
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        // Delete all bills and categories associated with this home
+        await Promise.all([
+          Bill.deleteMany({ home: args.homeId }),
+          BillCategory.deleteMany({ home: args.homeId }),
+          home.deleteOne(),
+        ]);
+
+        return true;
+      } catch (error) {
+        throwInternalError(error);
+      }
+    },
+
+    rejectDeleteHome: async (_parent: unknown, args: { homeId: string }, context: GraphQLContext) => {
+      try {
+        if (context.currentUserRole !== "SUPER_ADMIN") {
+          throw new GraphQLError("Only Super Admin can reject deletion", {
+            extensions: { code: "FORBIDDEN" },
+          });
+        }
+        assertObjectId(args.homeId, "homeId");
+
+        const home = await Home.findById(args.homeId);
+        if (!home) {
+          throw new GraphQLError("Home not found", {
+            extensions: { code: "NOT_FOUND" },
+          });
+        }
+
+        home.pendingDeletion = false;
+        await home.save();
+        return true;
       } catch (error) {
         throwInternalError(error);
       }
